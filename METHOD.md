@@ -35,8 +35,8 @@ determine everything the scripts do:
 
 **Peak time is a SHAPE parameter; ISF is an AMPLITUDE parameter.** They are separable. You can
 estimate *when* insulin acts without knowing *how strongly* it acts, and without knowing ISF at all.
-This is what makes the problem tractable, and it is why a concentration change of insulin concentration
-does not disturb a peak estimate: concentration is pure amplitude.
+This is what makes the problem tractable, and it is why a change of insulin concentration does
+not disturb a peak estimate: concentration is pure amplitude.
 
 **DIA is conditionally identifiable, and its confidence interval lies.** The tail of the curve is
 where DIA lives, and the tail is tiny. For a user with a 10 h DIA and 0.1–0.3 U doses, the remaining
@@ -212,6 +212,12 @@ This structure is doing specific work:
 
 Windows are non-overlapping so that the bootstrap resamples independent units.
 
+> **A note on the worked examples.** Figures below come from a real cohort of loop users who have
+> not consented to publication, so per-user labels are **local to each table** — "user a" in one
+> table is not the same person as "user a" in another, and no platform, device, insulin brand or
+> date is attached to any of them. The numbers illustrate the method's behaviour; they are not a
+> dataset and should not be treated as one.
+
 ## 6. Constraints — read this before believing any number
 
 **Sensor lag biases every estimate LATE**, by the interstitial delay (~4 min) plus filter delay.
@@ -321,10 +327,10 @@ specifications (window length, night hours, minimum insulin, drift on or off, DI
 
 | user | configured | median across specs | range | swing from the drift choice alone |
 |---|---|---|---|---|
-| K | 38 | 31.6 | [24.4, 75.9] | 2 min |
-| G | 34 | 45.8 | [37.9, 54.9] | 4 min |
-| J | 75 | 48.9 | [33.5, 76.6] | **23 min** |
-| B | 55 | 67.4 | [56.5, 149.8] | **35 min** |
+| user a | 38 | 31.6 | [24.4, 75.9] | 2 min |
+| user b | 34 | 45.8 | [37.9, 54.9] | 4 min |
+| user c | 75 | 48.9 | [33.5, 76.6] | **23 min** |
+| user d | 55 | 67.4 | [56.5, 149.8] | **35 min** |
 
 **The cause is collinearity.** Over a 3–5 hour fasting window the insulin activity profile is slowly
 varying and largely monotone — that is, nearly a straight line in time. So is the dawn ramp it must
@@ -384,9 +390,9 @@ Two users, both real, illustrating the two regimes:
 | Gate 2 observed peak | ~~35.3~~ | ~~54.6~~ — **both withdrawn, see §6b** |
 | verdict | Gate 1 agrees with configured | Gate 1 agrees with configured |
 
-User 1 has a 10 h DIA and ~0.1–0.3 U doses, so the tail is unobservable. User 2 has a ~4.75 h DIA
-and ~2.4× the insulin, so it is not. Gate 1 tells you which regime you are in *before* you interpret
-a DIA number.
+One has a long configured DIA and small doses, so the tail is unobservable. The other has a shorter
+duration and several times the insulin, so it is not. Gate 1 tells you which regime you are in
+*before* you interpret a DIA number.
 
 User 2's apparent gap did NOT survive the specification curve added later (§6b): across 96
 defensible analyses the estimate ranged 37.9-54.9 min, and for two other users the drift choice
@@ -419,10 +425,10 @@ Then the real test, on glucose, full history:
 
 | user | small (<1 U) | large (≥1 U) | difference | 95% CI | in-window large doses |
 |---|---|---|---|---|---|
-| B | 57.0 | 56.0 | −1.0 | [−8.0, +24.5] | 12.4% |
-| F | 24.5 | 22.5 | −2.0 | [−23.9, +89.4] | 15.7% |
-| A | 35.5 | 23.5 | −12.0 | [−16.0, +9.3] | 22.7% |
-| J | 38.5 | 54.5 | +16.0 | [+2.1, +81.3] | 4.5% |
+| user a | 57.0 | 56.0 | −1.0 | [−8.0, +24.5] | 12.4% |
+| user b | 24.5 | 22.5 | −2.0 | [−23.9, +89.4] | 15.7% |
+| user c | 35.5 | 23.5 | −12.0 | [−16.0, +9.3] | 22.7% |
+| user d | 38.5 | 54.5 | +16.0 | [+2.1, +81.3] | 4.5% |
 
 One of four excludes zero, in the predicted direction, in the user with the *least* large-dose
 content and a CI 79 min wide — and whose small-dose estimate disagrees with their own single-kernel

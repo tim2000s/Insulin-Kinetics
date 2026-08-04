@@ -15,9 +15,9 @@ intercept), so only `peak` is estimated globally. This matters:
 
   * ISF LEVEL differences between nights — dynamic ISF, site, hormones — cannot bias the peak,
     because each window gets its own amplitude.
-  * A concentration change of insulin concentration is a pure amplitude change, so it lands entirely
-    in `k` and leaves the shape estimate alone. That is what makes a before/after peak comparison
-    meaningful across a dilution.
+  * A change of insulin CONCENTRATION is a pure amplitude change, so it lands entirely in `k` and
+    leaves the shape estimate alone. That is what makes a before/after peak comparison meaningful
+    across a dilution or a change of strength.
 
 DIA is HELD FIXED, not fitted. Gate 1 showed it carries essentially no signal at these dose sizes
 (holding it at the configured value left RMSE unchanged at 0.1917 vs 0.1916), and fitting it drags
