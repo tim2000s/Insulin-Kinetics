@@ -24,9 +24,14 @@ you are in before you try.
 | script | what it does |
 |---|---|
 | `gate1_recover_known_curve.py` | **Positive control.** Deconvolves the loop's own logged IOB against the delivered doses. The answer is known by construction — it must return the configured curve. Establishes that the peak is identifiable under this user's real dose spacing, and whether their DIA is identifiable at all. |
-| `gate2_peak_from_glucose.py` | **The physiological estimate.** Fits the action peak to what glucose actually did, over isolated overnight fasting windows, with per-window amplitude and drift profiled out. |
+| `gate2_peak_from_glucose.py` | **The physiological estimate.** Fits the action peak to what glucose actually did, over isolated overnight fasting windows, with per-window amplitude and drift profiled out. Also screens for a mid-period insulin or settings change. |
+| `gate3_dose_split.py` | **Does the peak differ between large and small doses?** Two kernels, one per dose stratum, with separate amplitudes. Read it against the two-kernel Gate 1 control, which has a known answer of zero. |
 
 Run Gate 1 first. Without it, an unidentifiable fit still returns a confident-looking number.
+
+The fits are **pooled, not per-dose** — a closed loop never delivers an isolated dose, so there is
+no per-dose response to measure. One kernel is fitted to the whole series by convolution. METHOD.md
+§2a explains why that is forced by the data rather than chosen for convenience.
 
 ## Quick start
 
@@ -35,9 +40,10 @@ pip install -r requirements.txt
 
 python3 gate1_recover_known_curve.py --user <id> --expect-peak 38 --expect-dia 600
 python3 gate2_peak_from_glucose.py  --user <id> --tz Europe/London --dia 600
+python3 gate3_dose_split.py         --user <id> --tz Europe/London --dia 600
 ```
 
-Both print a summary and write a Markdown report next to the script.
+Each prints a summary and writes a Markdown report next to the script.
 
 ## What it needs
 

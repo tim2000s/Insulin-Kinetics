@@ -57,7 +57,20 @@ The 28-day interval is the tightest and the most wrong. The day-block bootstrap 
 because it resamples the noise around a likelihood that is nearly flat in DIA — a flat ridge with a
 spurious local minimum reproduces across resamples.
 
-**The diagnostic that works is window-length stability, not the CI.** Refit at 28, 45 and 90 days.
+**The diagnostic that works is LEVERAGE, computed directly.** Hold the peak, move DIA to 240, 360,
+480, 600, 900, 1440, and measure how much the predicted IOB series moves in RMS terms against the
+fit residual. If no alternative shifts the prediction by more than about twice the residual, the
+data cannot tell those DIAs apart and the recovered value is arbitrary. Gate 1 now prints this
+table and waives the DIA half of its verdict when DIA is unidentified — failing a user on a
+parameter the data cannot constrain reports a defect where there is none.
+
+Across the cohort this separates cleanly. For one user every alternative from 4 h to 24 h moved the
+prediction by at most 0.044 U against a 0.179 U residual — nothing, which is exactly why their
+estimate wandered 314 → 428 → 1440 with window length. For another, dropping DIA to 240 min moved
+it by 0.635 U against a 0.162 U residual, so short durations are firmly excluded even though 480
+and 600 are not separable from each other. Four of eleven users have no identified DIA at all.
+
+**Window-length stability is the secondary check.** Refit at 28, 45 and 90 days.
 A user whose DIA is genuinely identified returns the same number (one did: 487 / 482 / 463, and
 peak 75.0 / 75.1 / 77.2); a user whose DIA is not returns whatever the window happens to support.
 Do this before quoting a DIA. It is also worth doing for the peak, which was stable to ~1 min for
@@ -68,6 +81,28 @@ is usable data rather than contamination, and the ~19,800 boluses come back into
 constraint moves from sample size to **collinearity**: if "insulin 30 minutes ago" and "insulin 35
 minutes ago" are nearly the same regressor — which regular five-minute dosing threatens — the kernel
 is not identifiable no matter how much data there is. Gate 1 exists to test exactly this.
+
+## 2a. This is a pooled fit, not a per-dose one
+
+Worth stating plainly, because it is the natural thing to assume: **neither script estimates a peak
+for each dose and averages them.** There is one curve, fitted to the whole series at once.
+
+That is forced by the data, not chosen for convenience. A closed loop delivers a dose every few
+minutes, so any given rise or fall in glucose is the superposition of a dozen overlapping doses —
+there is no window in which one dose acts alone and no per-dose response to measure. What the fit
+does instead is convolve the entire dose series with a candidate kernel and ask which kernel
+reproduces the observed series. Every dose contributes to every observation it can still be acting
+on.
+
+Two things do get estimated per unit rather than globally, and the distinction matters:
+
+- **Gate 2 fits an amplitude and a drift ramp per WINDOW** (not per dose). That isolates the shape
+  from night-to-night differences in ISF and dawn phenomenon.
+- **Per-window peaks are computed**, but only to measure the between-window spread that sets the
+  power table. They are far too noisy individually to report — SD 24–41 min across this cohort.
+
+Gate 3 relaxes the single-kernel assumption in the one direction pharmacology suggests, by dose
+size. See §7a.
 
 ## 3. The insulin model
 
@@ -111,6 +146,24 @@ computed as a single convolution with a DIA-length kernel. The naive per-dose su
 O(doses × timepoints) — order 10⁸ per residual evaluation, and the optimiser calls it hundreds of
 times. `(tp, td)` are fitted by least squares, with a **day-block bootstrap** for confidence
 intervals so the correlation structure within a day is respected.
+
+**Observations within 10 minutes of a bolus are masked**, and this turned out to matter more than
+expected. IOB steps up by the whole dose at delivery, so a small error in when that step is placed
+produces a residual as large as the dose itself. Unmasked, the residual on an *exact identity* ran
+11–32% of signal. Masking cuts it to 7–10% for the clean users, and — the real point — removes a
+downward bias on DIA: the user whose configured DIA is known moved from 314 to 487 min against a
+truth of 600. The peak barely moves (38.5 → 38.4, 75.0 → 74.9), so the mask is close to free.
+
+A residual still above ~15% after masking is a flag, not noise. It means this user's dose records
+are not what the app saw — extended or multiwave boluses, partial delivery, or timestamps offset
+from the delivery the loop counted. Five of eleven cohort users flagged.
+
+**A note on grid binning, because a partial fix makes it worse.** Doses and observations are both
+floor-binned to the 5-minute grid, which places each about 2–3.5 min early on average. Those two
+errors are in the same direction and largely cancel in the lag that the kernel sees, which is why
+the estimate is sound. Switching only the dose side to rounding — the obvious "fix" — breaks the
+cancellation and moves the recovered peak by 1.6–2 min in a cohort where the whole signal is 35–75
+min. Change both or neither.
 
 **Two data notes.** Only the *bolus* channel is used: total IOB folds in basal and temp-basal
 delivery, and temp basals are recorded as a rate rather than an insulin amount, so they cannot be
@@ -243,6 +296,51 @@ a DIA number.
 User 2's gap survived every robustness check — with and without the drift control, on a pre-dawn
 subset, and under a deliberately wrong DIA prior — and lag bias points the wrong way to explain it.
 It remains **provisional**: one user, observational, exercise uncontrolled.
+
+## 7a. Should large and small doses be split? (Gate 3)
+
+Pharmacology says a bigger subcutaneous depot absorbs more slowly, so large doses should peak later.
+If true, one fitted curve fits neither end. Two separate questions came out of testing it.
+
+**Does the tail justify a split?** No. The proposed criterion was whether the post-5 h tail is above
+noise. Truncating each user's own recovered kernel at 5 h and measuring what that removes from the
+predicted IOB series gives **0.000–0.051 U RMS, against fit residuals of 0.15–0.55 U** — below the
+noise floor for all eleven users, at p90 doses as well as median ones. No dose stratification
+rescues that, because the tail is small relative to the residual in *both* strata. DIA is identified
+where it is identified through the rising limb and mid-curve shape, not the tail.
+
+**Does the peak differ by dose size?** Not demonstrably, and the estimator is poorly conditioned for
+the question.
+
+First the negative control, which is the part worth keeping. Run the two-kernel fit through Gate 1,
+where the app applies one configured curve to every dose regardless of size, so the true difference
+is exactly zero. Four users returned −0.9 to +3.1 min — the estimator is unbiased with respect to
+dose size. One returned **+48.7 min**, which is impossible for a single configured curve and
+identifies a data problem with that user's large doses rather than a discovery.
+
+Then the real test, on glucose, full history:
+
+| user | small (<1 U) | large (≥1 U) | difference | 95% CI | in-window large doses |
+|---|---|---|---|---|---|
+| B | 57.0 | 56.0 | −1.0 | [−8.0, +24.5] | 12.4% |
+| F | 24.5 | 22.5 | −2.0 | [−23.9, +89.4] | 15.7% |
+| A | 35.5 | 23.5 | −12.0 | [−16.0, +9.3] | 22.7% |
+| J | 38.5 | 54.5 | +16.0 | [+2.1, +81.3] | 4.5% |
+
+One of four excludes zero, in the predicted direction, in the user with the *least* large-dose
+content and a CI 79 min wide — and whose small-dose estimate disagrees with their own single-kernel
+result by 26 min. That is a conditioning failure, not a finding. The reason is collinearity: within
+a window the small-dose and large-dose regressors have median |r| of 0.56, 0.69 and **0.94** for
+the three users tested. At 0.94 the two peaks are simply not separable.
+
+There is also a structural limit. Gate 2's windows are chosen to exclude meals, so they are
+dominated by automatic micro-boluses — 0.9% to 22.7% of in-window doses clear 1 U, and for several
+users no window contains both classes. **The overnight-fasting design can characterise the
+micro-bolus curve and essentially cannot reach the meal-bolus curve.** A dose-dependent peak
+probably is real in pharmacology; this data cannot see it, and answering it properly needs a
+designed test with matched large and small doses under the same conditions.
+
+**Verdict: do not split the dose path on size on this evidence.** Unproven, not disproven.
 
 ## 8. Running them
 
