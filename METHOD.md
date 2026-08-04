@@ -257,6 +257,60 @@ signal is reported so this is at least visible.
 observed and configured is a discrepancy, not a demonstration that changing the setting improves
 anything.
 
+## 6b. Why Gate 2 is not validated, and what was withdrawn
+
+Gate 1 always had a positive control. Gate 2 did not, and when one was finally built the method did
+not survive it. Three tests, in the order they were run.
+
+**1. Is the estimator biased?** No. `gate2_selftest.py` keeps a user's real windows — real dose
+times, real dose sizes, real sampling — and replaces the observed glucose with glucose simulated
+from a known peak, calibrated to that user's own amplitude, drift and noise. Recovery across true
+peaks of 35, 45, 55 and 75 min was accurate to **±0.3 min**. Adding an unmodelled basal-action term
+shifted it by at most 0.4 min; adding unannounced meals to a quarter of windows, at most 0.5 min.
+The estimator does what it says on its own generating model.
+
+**2. Is the exponential family too rigid?** Only mildly, and in the wrong direction to matter.
+Generating glucose from non-exponential activity curves — gammas of several shapes, bi-exponentials
+of several tail ratios — and fitting with the exponential estimator gives a bias of **−10.4 to +5.3
+min**, mostly negative. A misspecified shape makes the reported peak *earlier*, so it cannot explain
+a peak that comes out later than configured.
+
+**3. Does the answer depend on the analyst?** Yes, ruinously. Refitting across 96 defensible
+specifications (window length, night hours, minimum insulin, drift on or off, DIA prior):
+
+| user | configured | median across specs | range | swing from the drift choice alone |
+|---|---|---|---|---|
+| K | 38 | 31.6 | [24.4, 75.9] | 2 min |
+| G | 34 | 45.8 | [37.9, 54.9] | 4 min |
+| J | 75 | 48.9 | [33.5, 76.6] | **23 min** |
+| B | 55 | 67.4 | [56.5, 149.8] | **35 min** |
+
+**The cause is collinearity.** Over a 3–5 hour fasting window the insulin activity profile is slowly
+varying and largely monotone — that is, nearly a straight line in time. So is the dawn ramp it must
+be separated from. Median |r(insulin regressor, time)| is **0.73–0.81** at four-hour windows and
+rises to **0.99** at two hours. The two terms compete for the same slow component of the data, and
+whichever one is permitted to absorb it decides the answer. A bootstrap on one specification cannot
+see this, because it holds the choice fixed.
+
+Restricting to windows where the two are close to orthogonal (|r| < 0.5) leaves 17–28% of windows and does
+**not** fix it: the drift swing stayed at 13 min for one user and grew to 45 for another.
+
+**What is withdrawn.** Every per-user physiological peak reported from Gate 2, specifically the
+claim that one user's peak sits ~20 min later than their configured value, and the claim that
+another's is consistent with their configured 75. Neither survives the specification curve.
+
+**What survives.** Gate 1, which is an algebraic identity rather than an inference: it recovers
+known configured curves to a fraction of a minute, matches vendor presets across the cohort, detects
+a mid-period insulin change nobody recorded, and passes a two-kernel dose-size negative control. It
+measures what the *loop believes*, which is a genuinely useful and separate thing from what the
+insulin does.
+
+**What would be needed to answer the physiological question.** Not more of this data. The confounder
+is structural: overnight is chosen because it is quiet, and quiet is exactly when insulin action and
+endogenous drift look alike. It needs a design where insulin action is not monotone across the
+observation window — a fasting bolus given deliberately, with no other insulin, so the activity
+profile has curvature the drift term cannot mimic.
+
 ## 6a. Detecting a change nobody recorded
 
 A pooled estimate silently averages across an insulin brand switch, a dilution, or a settings
@@ -286,16 +340,18 @@ Two users, both real, illustrating the two regimes:
 | configured peak | 38 min | ~34 min (recovered) |
 | Gate 1 recovered peak | **36.3** [35.8, 36.7] | **33.9** [33.2, 35.1] |
 | Gate 1 recovered DIA | 375 [298, **1440**] — *not identifiable* | 285 [242, 340] — *identifiable* |
-| Gate 2 observed peak | **35.3** [29.5, 46.1] | **54.6** [42.8, 62.3] |
-| verdict | consistent with configured | **~20 min later than configured** |
+| Gate 2 observed peak | ~~35.3~~ | ~~54.6~~ — **both withdrawn, see §6b** |
+| verdict | Gate 1 agrees with configured | Gate 1 agrees with configured |
 
 User 1 has a 10 h DIA and ~0.1–0.3 U doses, so the tail is unobservable. User 2 has a ~4.75 h DIA
 and ~2.4× the insulin, so it is not. Gate 1 tells you which regime you are in *before* you interpret
 a DIA number.
 
-User 2's gap survived every robustness check — with and without the drift control, on a pre-dawn
-subset, and under a deliberately wrong DIA prior — and lag bias points the wrong way to explain it.
-It remains **provisional**: one user, observational, exercise uncontrolled.
+User 2's apparent gap did NOT survive the specification curve added later (§6b): across 96
+defensible analyses the estimate ranged 37.9-54.9 min, and for two other users the drift choice
+alone moved the answer by 23 and 35 minutes. The gap is withdrawn. The robustness checks originally
+run — drift on/off, a pre-dawn subset, a wrong DIA prior — were too narrow a set to catch this, which
+is the lesson: vary the specification, not just the data.
 
 ## 7a. Should large and small doses be split? (Gate 3)
 

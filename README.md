@@ -7,6 +7,14 @@ just the dosing and CGM history a loop already records.
 **[METHOD.md](METHOD.md) is the document to read.** It covers the identification argument, the
 model, what each script does and why, and the constraints on believing any of it.
 
+> **Status, 2026-08-04.** Gate 1 (the configured curve, from logged IOB) is validated and useful.
+> **Gate 2 (the physiological peak, from glucose) is NOT validated and its outputs are withdrawn.**
+> The estimator is unbiased on its own generating model, but in overnight fasting windows the
+> insulin regressor is collinear with the dawn-drift control it has to be separated from — median
+> |r| 0.73–0.81, up to 0.99 on short windows. Turning that one control on or off moves the answer
+> by up to 45 minutes for some users, and selecting windows on orthogonality does not fix it.
+> See METHOD.md §6b. Do not quote a Gate 2 peak.
+
 ## The short version
 
 Glucose falls at a rate proportional to insulin *activity*, so the first derivative of CGM traces
@@ -24,7 +32,9 @@ you are in before you try.
 | script | what it does |
 |---|---|
 | `gate1_recover_known_curve.py` | **Positive control.** Deconvolves the loop's own logged IOB against the delivered doses. The answer is known by construction — it must return the configured curve. Establishes that the peak is identifiable under this user's real dose spacing, and whether their DIA is identifiable at all. |
-| `gate2_peak_from_glucose.py` | **The physiological estimate.** Fits the action peak to what glucose actually did, over isolated overnight fasting windows, with per-window amplitude and drift profiled out. Also screens for a mid-period insulin or settings change. |
+| `gate2_peak_from_glucose.py` | **The physiological estimate — NOT VALIDATED, see status note.** Fits the action peak to what glucose actually did, over isolated overnight fasting windows, with per-window amplitude and drift profiled out. Also screens for a mid-period insulin or settings change. |
+| `gate2_selftest.py` | **The positive control Gate 2 was missing.** Replaces observed glucose with glucose simulated from a known peak, using the real dose series and the user's own noise level, and checks the estimator returns it. |
+| `gate2_spec_curve.py` | **How much does the answer depend on the analyst?** Refits across a grid of defensible choices. This is what showed Gate 2 to be under-identified. |
 | `gate3_dose_split.py` | **Does the peak differ between large and small doses?** Two kernels, one per dose stratum, with separate amplitudes. Read it against the two-kernel Gate 1 control, which has a known answer of zero. |
 
 Run Gate 1 first. Without it, an unidentifiable fit still returns a confident-looking number.
