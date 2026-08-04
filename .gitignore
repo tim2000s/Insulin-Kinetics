@@ -16,3 +16,6 @@ GATE3_REPORT.md
 GATE2_SELFTEST.md
 GATE2_SPEC_CURVE.md
 .cohort_*
+build/
+*.pdf
+*.html
