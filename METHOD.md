@@ -257,6 +257,47 @@ signal is reported so this is at least visible.
 observed and configured is a discrepancy, not a demonstration that changing the setting improves
 anything.
 
+## 6c. Gate 4 — dropping the parametric form (the method that works)
+
+Gate 2's failure was a design failure, so the fix is a different design rather than a better fit.
+Stop assuming a curve shape; treat the record as a train of impulses and estimate the response.
+
+    dBG_t = - SUM_k beta_k * dose_{t-k}  +  tod_{clock(t)}  +  day_{n(t)}  +  e_t
+
+One free `beta_k` per five-minute lag out to six hours, no shape assumed, with a second-difference
+(Tikhonov) smoothness penalty chosen by GCV and `beta >= 0`. This is standard non-parametric
+deconvolution — the same machinery used for physiological input estimation, and identical to a
+distributed-lag/FIR regression in econometrics.
+
+**The identification change is what matters, not the flexibility.** Gate 2 gave every window its own
+free drift ramp, which within a single window is the same slow shape as insulin action. Gate 4
+models drift as a **repeatable time-of-day profile estimated from every day at once**. Dawn is
+locked to the clock; insulin doses are not. That difference in timing is the identifying variation,
+and it only exists when you pool across days. For the same reason the sample is every fasting
+stretch around the clock, not only overnight — 12,000 to 86,000 samples per user rather than ~100
+windows.
+
+**Positive control, run before looking at any real answer:**
+
+| generating curve | true peak | recovered, no noise | recovered, realistic noise |
+|---|---|---|---|
+| AAPS exponential | 35 | 35 | 35 |
+| AAPS exponential | 55 | 55 | 55 |
+| AAPS exponential | 75 | 75 | 70 |
+| gamma, shape 3 (wrong family) | 45 | 45 | 50 |
+| gamma, shape 6 (wrong family) | 35 | 35 | 35 |
+
+It recovers the peak **even when the generating family is wrong**, which the parametric estimator
+could not (that biased −10.4 to +5.3 min). Specification curve across max-lag and day-effect
+choices: range **0–5 min**, against Gate 2's 23–45 min. Dropping the time-of-day term moves it 0–15
+min.
+
+**Two bugs this exposed, both caught by the control rather than by reading the code.** A carb record
+timestamped before the grid start produced a negative slice bound, and `ok[0:negative]` silently
+blanked 112 of 123 days. And the design regressed on `+dose` while constraining `beta >= 0`, which
+pins every true (negative) coefficient at zero — at *zero noise* the estimator returned 355 min for
+a true 45. Neither would have been visible from the output alone.
+
 ## 6b. Why Gate 2 is not validated, and what was withdrawn
 
 Gate 1 always had a positive control. Gate 2 did not, and when one was finally built the method did

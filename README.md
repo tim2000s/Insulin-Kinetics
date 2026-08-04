@@ -7,8 +7,11 @@ just the dosing and CGM history a loop already records.
 **[METHOD.md](METHOD.md) is the document to read.** It covers the identification argument, the
 model, what each script does and why, and the constraints on believing any of it.
 
-> **Status, 2026-08-04.** Gate 1 (the configured curve, from logged IOB) is validated and useful.
-> **Gate 2 (the physiological peak, from glucose) is NOT validated and its outputs are withdrawn.**
+> **Status, 2026-08-04.** Gate 1 (configured curve, from logged IOB) is validated. **Gate 4
+> (non-parametric deconvolution) supersedes Gate 2** and is the method to use: it assumes no curve
+> shape, recovers a known peak even when the generating family is wrong, and is stable to within
+> 0–5 min across specifications where Gate 2 swung 23–45 min.
+> **Gate 2 is NOT validated and its outputs are withdrawn.**
 > The estimator is unbiased on its own generating model, but in overnight fasting windows the
 > insulin regressor is collinear with the dawn-drift control it has to be separated from — median
 > |r| 0.73–0.81, up to 0.99 on short windows. Turning that one control on or off moves the answer
@@ -35,6 +38,7 @@ you are in before you try.
 | `gate2_peak_from_glucose.py` | **The physiological estimate — NOT VALIDATED, see status note.** Fits the action peak to what glucose actually did, over isolated overnight fasting windows, with per-window amplitude and drift profiled out. Also screens for a mid-period insulin or settings change. |
 | `gate2_selftest.py` | **The positive control Gate 2 was missing.** Replaces observed glucose with glucose simulated from a known peak, using the real dose series and the user's own noise level, and checks the estimator returns it. |
 | `gate2_spec_curve.py` | **How much does the answer depend on the analyst?** Refits across a grid of defensible choices. This is what showed Gate 2 to be under-identified. |
+| `gate4_deconvolution.py` | **The method that works.** Estimates the impulse response itself — one free coefficient per 5-minute lag, smoothness-penalised, non-negative — with a shared time-of-day drift profile instead of a per-window ramp. |
 | `gate3_dose_split.py` | **Does the peak differ between large and small doses?** Two kernels, one per dose stratum, with separate amplitudes. Read it against the two-kernel Gate 1 control, which has a known answer of zero. |
 
 Run Gate 1 first. Without it, an unidentifiable fit still returns a confident-looking number.
