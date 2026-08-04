@@ -81,19 +81,21 @@ def activity(t_min: np.ndarray, peak: float, dia_min: float) -> np.ndarray:
 
 
 # ── data ────────────────────────────────────────────────────────────────────────
-def load(user: str, days: int):
+def load(user: str, days: int, offset_days: int = 0):
     conn = psycopg2.connect(DSN)
     dec = pd.read_sql(f"""
         SELECT DISTINCT ON (floor(ts_epoch/300.0))
           ts_utc, ts_epoch, (iob_iob - iob_basaliob) AS bolus_iob
         FROM boost_decisions
         WHERE user_id = %s AND iob_iob IS NOT NULL AND iob_basaliob IS NOT NULL
-          AND ts_utc > now() - interval '{days} days'
+          AND ts_utc > now() - interval '{days + offset_days} days'
+          AND ts_utc <= now() - interval '{offset_days} days'
         ORDER BY floor(ts_epoch/300.0), ts_epoch DESC""", conn, params=(user,))
     bol = pd.read_sql(f"""
         SELECT ts_utc, insulin FROM boost_treatments
         WHERE user_id = %s AND insulin > 0
-          AND ts_utc > now() - interval '{days + 2} days'
+          AND ts_utc > now() - interval '{days + offset_days + 2} days'
+          AND ts_utc <= now() - interval '{offset_days} days'
         ORDER BY ts_utc""", conn, params=(user,))
     conn.close()
     for d in (dec, bol):
@@ -119,14 +121,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--user", required=True, help="user id as stored in the database")
     ap.add_argument("--days", type=int, default=45)
+    ap.add_argument("--offset-days", type=int, default=0,
+                    help="end the window N days ago instead of now. Two disjoint windows "
+                         "(e.g. --days 14 --offset-days 14, then --days 14) test whether the "
+                         "configured curve CHANGED mid-period — an insulin or settings switch "
+                         "would otherwise be pooled into one blended estimate.")
     ap.add_argument("--expect-peak", type=float, default=38.0)
     ap.add_argument("--expect-dia", type=float, default=600.0)
     ap.add_argument("--boot", type=int, default=200)
+    ap.add_argument("--out", help="report path (default GATE1_REPORT.md beside the script)")
     ap.add_argument("--fix-dia", action="store_true",
                     help="hold DIA at the configured value and fit peak alone")
     a = ap.parse_args()
 
-    dec, bol = load(a.user, a.days)
+    dec, bol = load(a.user, a.days, a.offset_days)
     if dec.empty or bol.empty:
         print("no data"); return
     STEP = 300.0                                    # the loop's own 5-minute cadence
@@ -217,7 +225,7 @@ def main():
     P(f"For the recovered curve, action peaks at **{tt[np.argmax(activity(tt, peak_hat, dia_hat))]:.0f} min** "
       "— this is the number the loop uses, and the one a glucose-based estimate is comparable to.\n")
 
-    open(os.path.join(HERE, "GATE1_REPORT.md"), "w").write("\n".join(L))
+    open(a.out or os.path.join(HERE, "GATE1_REPORT.md"), "w").write("\n".join(L))
     print("\n".join(L))
 
 

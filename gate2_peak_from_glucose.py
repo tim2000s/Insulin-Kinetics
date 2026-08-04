@@ -56,6 +56,7 @@ import numpy as np
 import pandas as pd
 import psycopg2
 from scipy.optimize import minimize_scalar
+from scipy.stats import spearmanr
 
 from gate1_recover_known_curve import activity
 
@@ -177,6 +178,11 @@ def main():
     ap.add_argument("--dia", type=float, default=600.0)
     ap.add_argument("--hours", type=float, default=4.0)
     ap.add_argument("--before", help="only use windows before this date (YYYY-MM-DD)")
+    ap.add_argument("--since", help="only use windows on or after this date (YYYY-MM-DD). Pair with "
+                                    "--before to bound a fixed window; a long history can straddle "
+                                    "an insulin or settings change that makes a pooled estimate a "
+                                    "blend of two curves.")
+    ap.add_argument("--out", help="report path (default GATE2_REPORT.md beside the script)")
     ap.add_argument("--boot", type=int, default=300)
     ap.add_argument("--no-linear-drift", dest="linear_drift", action="store_false",
                     help="drop the per-window time trend (leaves the dawn-ramp bias in place)")
@@ -190,6 +196,12 @@ def main():
     if a.before:
         cut = pd.Timestamp(a.before, tz="UTC")
         dec = dec[dec.ts < cut]; tre = tre[tre.ts < cut]
+    if a.since:
+        # Keep treatments from 6 h before the cut: a window at the start of the period is still
+        # acted on by insulin delivered before it, and dropping those doses would understate the
+        # input and drag the fitted peak.
+        cut = pd.Timestamp(a.since, tz="UTC")
+        dec = dec[dec.ts >= cut]; tre = tre[tre.ts >= cut - pd.Timedelta(hours=6)]
     nh = tuple(int(v) for v in a.night.split(","))
     wins = build_windows(dec, tre, hours=a.hours, min_insulin=a.min_insulin, night=nh)
     if len(wins) < 5:
@@ -208,20 +220,35 @@ def main():
 
     # Per-window estimates: gives the BETWEEN-window spread, which sets how big a real shift must
     # be before it can be told apart from ordinary night-to-night wander.
-    per = []
+    per, per_t = [], []
     for w in wins:
         try:
             pk, _ = fit_peak([w], a.dia, linear_drift=a.linear_drift)
             if 12 < pk < 148:                                # drop windows pinned at a bound
-                per.append(pk)
+                per.append(pk); per_t.append(w[0][0])
         except Exception:                                    # noqa: BLE001
             pass
-    per = np.array(per)
+    per, per_t = np.array(per), np.array(per_t)
+
+    # MID-PERIOD CHANGE SCREEN. A pooled estimate silently averages across an insulin brand,
+    # concentration or settings change that nobody recorded. Two cheap checks: a rank correlation
+    # of per-window peak against time, and a split-half refit. Neither is powerful at these sample
+    # sizes — a null here is NOT evidence of stability, it is absence of evidence.
+    drift_note = None
+    if len(per) >= 10:
+        rho, pval = spearmanr(per_t, per)
+        half = np.median(per_t)
+        w1 = [w for w in wins if w[0][0] <= half]
+        w2 = [w for w in wins if w[0][0] > half]
+        h1 = fit_peak(w1, a.dia, linear_drift=a.linear_drift)[0] if len(w1) >= 3 else float("nan")
+        h2 = fit_peak(w2, a.dia, linear_drift=a.linear_drift)[0] if len(w2) >= 3 else float("nan")
+        drift_note = (rho, pval, h1, h2, len(w1), len(w2))
 
     L = []
     P = L.append
     P("# Gate 2 — insulin action peak from observed glucose\n")
-    P(f"User **{a.user}**{f', windows before {a.before}' if a.before else ''}. "
+    span = (f" [{a.since or 'start'} to {a.before or 'now'}]" if (a.since or a.before) else "")
+    P(f"User **{a.user}**{span}. "
       f"{len(wins)} isolated fasting windows of {a.hours:g} h (tz {a.tz}"
       f"{'; NO step data - exercise uncontrolled' if not dec.steps_60m.notna().any() else ''}) "
       f"({len(wins) * a.hours:.0f} h total). DIA held at {a.dia:.0f} min.\n")
@@ -240,11 +267,31 @@ def main():
         P("\nBased on the observed between-window SD, so it already includes ordinary night-to-night "
           "variation rather than assuming it away. At roughly one usable window per night, the "
           "left column is also days of data.\n")
+    if drift_note:
+        rho, pval, h1, h2, n1, n2 = drift_note
+        P("\n## Did the curve change mid-period?\n")
+        P(f"Per-window peak vs time: Spearman rho {rho:+.2f} (p {pval:.3f}). "
+          f"Split-half refit: first half {h1:.1f} min (n={n1}), second half {h2:.1f} min (n={n2}); "
+          f"difference {h2 - h1:+.1f} min against a standard error of "
+          f"{(per.std(ddof=1) * np.sqrt(1.0/max(n1,1) + 1.0/max(n2,1))):.1f} min.\n")
+        # The half-difference must be judged against its OWN standard error, not a fixed minute
+        # threshold. With a per-window SD near 35 min and ~10 windows a side, the SE of the
+        # difference is ~16 min, so a flat "> 20 min" rule fires on noise about a fifth of the
+        # time — it flagged three users here before this was corrected.
+        se = (per.std(ddof=1) * np.sqrt(1.0 / max(n1, 1) + 1.0 / max(n2, 1))) if len(per) > 1 else np.inf
+        flag = (pval < 0.05) or (abs(h2 - h1) > 1.96 * se)
+        P("\n" + ("**FLAG — the estimate is not stable across the period.** Treat the pooled number "
+                   "as a blend of two regimes, not one curve, and look for an insulin, "
+                   "concentration or settings change."
+                   if flag else
+                   "No significant drift detected. Note this is a weak test at these sample sizes: "
+                   "it would miss a shift smaller than the detectable-difference table below, so a "
+                   "null here is not evidence that nothing changed.") + "\n")
     P("\n**Read the absolute value with care:** sensor lag biases it late by a few minutes and that "
       "is not corrected here. The comparison this is built for — before vs after a change, same "
       "user, same sensor generation — cancels that offset.\n")
 
-    open(os.path.join(HERE, "GATE2_REPORT.md"), "w").write("\n".join(L))
+    open(a.out or os.path.join(HERE, "GATE2_REPORT.md"), "w").write("\n".join(L))
     print("\n".join(L))
 
 

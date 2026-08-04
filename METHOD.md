@@ -38,12 +38,30 @@ estimate *when* insulin acts without knowing *how strongly* it acts, and without
 This is what makes the problem tractable, and it is why a concentration change of insulin concentration
 does not disturb a peak estimate: concentration is pure amplitude.
 
-**DIA is conditionally identifiable.** The tail of the curve is where DIA lives, and the tail is
-tiny. For a user with a 10 h DIA and 0.1–0.3 U doses, the remaining insulin beyond ~5 h is a
-fraction of a percent of a dose — below rounding, so the data carries almost no information about
-where the curve ends. For a user with a ~4.75 h DIA and doses ~2.4× larger, the tail clears the
-noise and DIA *is* identifiable. **Whether you can estimate DIA is a property of the curve and the
-dose size, not of the method.** Both cases are shown in §7.
+**DIA is conditionally identifiable, and its confidence interval lies.** The tail of the curve is
+where DIA lives, and the tail is tiny. For a user with a 10 h DIA and 0.1–0.3 U doses, the remaining
+insulin beyond ~5 h is a fraction of a percent of a dose — below rounding, so the data carries
+almost no information about where the curve ends. For a user with a ~8 h DIA and doses ~2.4× larger,
+the tail clears the noise and DIA *is* identifiable.
+
+The trap is that a weakly-identified DIA does not announce itself with a wide interval. For the one
+user whose configured DIA is known independently (600 min), Gate 1 returned:
+
+| window | DIA | 95% CI |
+|---|---|---|
+| 28 days | 314 | [260, 378] — **excludes the truth** |
+| 45 days | 428 | [317, 1440] |
+| 90 days | 1440 | [319, 1440] |
+
+The 28-day interval is the tightest and the most wrong. The day-block bootstrap under-covers here,
+because it resamples the noise around a likelihood that is nearly flat in DIA — a flat ridge with a
+spurious local minimum reproduces across resamples.
+
+**The diagnostic that works is window-length stability, not the CI.** Refit at 28, 45 and 90 days.
+A user whose DIA is genuinely identified returns the same number (one did: 487 / 482 / 463, and
+peak 75.0 / 75.1 / 77.2); a user whose DIA is not returns whatever the window happens to support.
+Do this before quoting a DIA. It is also worth doing for the peak, which was stable to ~1 min for
+the identified user and wandered 38.5 → 36.6 → 32.9 for the other.
 
 **Superposition rescues the sample size.** For a linear kernel, overlapping doses add. So every dose
 is usable data rather than contamination, and the ~19,800 boluses come back into play. The binding
@@ -186,6 +204,26 @@ signal is reported so this is at least visible.
 observed and configured is a discrepancy, not a demonstration that changing the setting improves
 anything.
 
+## 6a. Detecting a change nobody recorded
+
+A pooled estimate silently averages across an insulin brand switch, a dilution, or a settings
+change. Three checks, in descending order of usefulness:
+
+1. **Gate 1 on disjoint sub-windows** (`--days 14 --offset-days 14`, then `--days 14`). This is by
+   far the sharpest instrument, because Gate 1's peak intervals are narrow. In a 10-user cohort it
+   cleanly caught one user moving from a ~75–82 min curve to a ~55 min curve mid-period; rolling
+   7-day windows localised the switch to a single week. Nothing in the treatment stream named it.
+2. **Gate 2's change screen** — a rank correlation of per-window peak against time, plus a
+   split-half refit. Reported automatically. At 28 days it is nearly powerless: the half-difference
+   standard error is 12–21 min, which is the same size as the effects worth finding.
+3. **Event flags** — `Insulin Change` and `Profile Switch` records. Necessary but not sufficient:
+   `Insulin Change` usually means a routine cartridge refill, and a real formulation change often
+   generates no event at all.
+
+The split-half flag must be judged against its **own standard error**, not a fixed minute threshold.
+A flat "> 20 min" rule fires about a fifth of the time on noise alone when the per-window SD is near
+35 min — it produced three false flags in a 10-user cohort before this was corrected.
+
 ## 7. Worked results
 
 Two users, both real, illustrating the two regimes:
@@ -236,12 +274,15 @@ mostly a matter of rewriting the two queries in `load()`.
 
 ## 9. Order of operations
 
-1. **Gate 1.** Identifiability under this user's real dose spacing, with a known answer. Also tells
-   you whether DIA is estimable for them.
-2. **Gate 2.** The observed peak, with the drift control on.
-3. **Robustness.** Drift on/off, pre-dawn subset, DIA prior. If the answer moves a lot, it is the
+1. **Gate 1.** Identifiability under this user's real dose spacing, with a known answer.
+2. **Gate 1 at three window lengths** (28/45/90 d). Stability, not the CI, is what tells you whether
+   a recovered DIA — or peak — is real.
+3. **Gate 1 on disjoint halves.** Did the configured curve change mid-period?
+4. **Gate 2.** The observed peak, with the drift control on. Budget ~3 months of data: at 28 days
+   the intervals came out 40–95 min wide across a 10-user cohort, which is no answer at all.
+5. **Robustness.** Drift on/off, pre-dawn subset, DIA prior. If the answer moves a lot, it is the
    model talking, not the insulin.
-4. **Power.** Check the detectable-shift table before promising anyone a before/after comparison.
+6. **Power.** Check the detectable-shift table before promising anyone a before/after comparison.
 
 Skipping (1) is the mistake worth naming: without it, an unidentifiable fit still returns a
 confident-looking number.
