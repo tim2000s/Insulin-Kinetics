@@ -39,6 +39,9 @@ you are in before you try.
 | `gate2_selftest.py` | **The positive control Gate 2 was missing.** Replaces observed glucose with glucose simulated from a known peak, using the real dose series and the user's own noise level, and checks the estimator returns it. |
 | `gate2_spec_curve.py` | **How much does the answer depend on the analyst?** Refits across a grid of defensible choices. This is what showed Gate 2 to be under-identified. |
 | `gate4_deconvolution.py` | **The method that works.** Estimates the impulse response itself — one free coefficient per 5-minute lag, smoothness-penalised, non-negative — with a shared time-of-day drift profile instead of a per-window ramp. |
+| `gate4_selftest.py` | **Positive control for Gate 4.** Real doses, simulated glucose from a known curve, across three generating families. Zero-noise recovery must be exact. |
+| `gate1_controls.py` | Post-bolus mask sweep, two-kernel dose-size negative control, and the kernel-tail-vs-noise test that decides whether a DIA is worth quoting. |
+| `extract_integrity.py` | Is the pipeline itself faking the answer? Derivation, duplication, dose completeness and timestamp alignment — all kernel-free. |
 | `gate3_dose_split.py` | **Does the peak differ between large and small doses?** Two kernels, one per dose stratum, with separate amplitudes. Read it against the two-kernel Gate 1 control, which has a known answer of zero. |
 
 Run Gate 1 first. Without it, an unidentifiable fit still returns a confident-looking number.
