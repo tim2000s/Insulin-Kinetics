@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.csv
+GATE1_REPORT.md
+GATE2_REPORT.md
+.env
