@@ -1,4 +1,4 @@
-# Insulin peak and DIA detection
+# Insulin Kinetics
 
 Estimating a person's insulin **action peak time** — and, when the data allows it, their **duration
 of insulin action** — from ordinary closed-loop data. No test protocol, no clinic, no clamp study:
