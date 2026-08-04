@@ -42,6 +42,8 @@ you are in before you try.
 | `gate4_selftest.py` | **Positive control for Gate 4.** Real doses, simulated glucose from a known curve, across three generating families. Zero-noise recovery must be exact. |
 | `gate1_controls.py` | Post-bolus mask sweep, two-kernel dose-size negative control, and the kernel-tail-vs-noise test that decides whether a DIA is worth quoting. |
 | `extract_integrity.py` | Is the pipeline itself faking the answer? Derivation, duplication, dose completeness and timestamp alignment — all kernel-free. |
+| `feedback_simulation.py` | The blind spot both self-tests share: they simulate glucose *from* the doses, making the input exogenous by construction. This closes the loop — a controller doses in response to glucose — and checks the peak still comes back. |
+| `run_cohort.py` | Drives Gate 1 (+ disjoint halves) and Gate 4 across a user list into one comparison table. User ids and timezones are supplied at runtime, never committed. |
 | `gate3_dose_split.py` | **Does the peak differ between large and small doses?** Two kernels, one per dose stratum, with separate amplitudes. Read it against the two-kernel Gate 1 control, which has a known answer of zero. |
 
 Run Gate 1 first. Without it, an unidentifiable fit still returns a confident-looking number.

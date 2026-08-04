@@ -4,3 +4,15 @@ __pycache__/
 GATE1_REPORT.md
 GATE2_REPORT.md
 .env
+
+# cohort config (user ids and timezones) is never committed
+cohort.json
+COHORT_REPORT.md
+FEEDBACK_SIM.md
+GATE1_CONTROLS.md
+GATE4_SELFTEST.md
+GATE4_REPORT.md
+GATE3_REPORT.md
+GATE2_SELFTEST.md
+GATE2_SPEC_CURVE.md
+.cohort_*
