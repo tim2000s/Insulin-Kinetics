@@ -187,7 +187,7 @@ def main():
 
     A("<h3>3.1 Insulin model</h3>")
     A("<p>Both estimators refer to the exponential (\"free-peak\") insulin model used by oref-derived "
-      "AID systems. For peak time <i>t</i><sub>p</sub> and duration <i>t</i><sub>d</sub> in minutes, "
+      "AID systems [1]. For peak time <i>t</i><sub>p</sub> and duration <i>t</i><sub>d</sub> in minutes, "
       "define</p>")
     A('<div class="eq">τ = <i>t</i><sub>p</sub> (1 − <i>t</i><sub>p</sub>/<i>t</i><sub>d</sub>) / '
       '(1 − 2<i>t</i><sub>p</sub>/<i>t</i><sub>d</sub>), &nbsp;&nbsp; '
@@ -272,7 +272,8 @@ def main():
 
     A("<h3>3.5 Non-parametric recovery of the observed response</h3>")
     A("<p>The second estimator abandons the parametric form. The record is treated as a train of "
-      "impulses and the impulse response estimated directly:</p>")
+      "impulses and the impulse response estimated directly — non-parametric input estimation in "
+      "the sense of [2]:</p>")
     A('<div class="eq">Δ<i>g</i><sub>t</sub> = − Σ<sub>k=0</sub><sup>K</sup> β<sub>k</sub> '
       '<i>d</i><sub>t−k</sub> + <i>c</i><sub>clock(t)</sub> + <i>u</i><sub>day(t)</sub> + '
       'ε<sub>t</sub><span class="eqn">(8)</span></div>')
@@ -322,12 +323,12 @@ def main():
       "the hat matrix and hence the effective degrees of freedom are available in closed form, and "
       "the selected value is then applied to the non-negativity-constrained fit of (9). The "
       "constraint binds only in the tail, where the unpenalised estimate would otherwise oscillate "
-      "about zero, so this decoupling has no material effect on the recovered peak. Implemented in "
+      "about zero, so this decoupling has no material effect on the recovered peak [3]. Implemented in "
       "<code>gate4_deconvolution.py</code>, functions <code>design</code>, <code>fit_fir</code> and "
       "<code>gcv</code>.</p>")
 
     A("<h3>3.7 Uncertainty</h3>")
-    A("<p>Intervals are obtained by block bootstrap resampling whole days with replacement, "
+    A("<p>Intervals are obtained by block bootstrap [4] resampling whole days with replacement, "
       "preserving within-day correlation, and refitting. Days rather than observations are the "
       "resampling unit because consecutive five-minute samples are strongly dependent; resampling "
       "observations would understate uncertainty by a wide margin.</p>")
@@ -351,7 +352,8 @@ def main():
       "detect the failure mode that matters most in closed-loop data: the controller doses "
       "<i>because</i> glucose is rising. In these records a dose correlates +0.25 to +0.55 with the "
       "glucose change in the preceding five minutes and approximately zero with the following half "
-      "hour, so the controller's reaction dominates the raw dose–glucose relationship. A closed-loop "
+      "hour, so the controller's reaction dominates the raw dose–glucose relationship — the classical "
+      "obstacle to identifying a plant operating under feedback [5]. A closed-loop "
       "simulation was therefore run, in which glucose responds to insulin through a known kernel "
       "while a proportional controller doses off the recent rise, at gains spanning an open loop to "
       "an aggressively reactive one. The verdict is taken against the open-loop case rather than an "
@@ -467,6 +469,29 @@ def main():
       "the cause is made here.</p>")
 
     # ---------------- Discussion ----------------
+    A("<h3>4.6 Why the cohort could not be enlarged</h3>")
+    A("<p>A further archive was available holding 6.6 million controller cycles from 110 users of "
+      "oref-derived systems, 67 of them with a logged insulin-on-board series and several with more "
+      "than five years of records — an order of magnitude more data than analysed here. It carries "
+      "no record of delivered doses, so extending Gate 1 to it requires reconstructing the dose "
+      "series from the IOB series itself. This is not possible, for a structural reason.</p>")
+    A("<p>Writing the identity of (5) on a regular grid gives a lower-triangular system, and because "
+      "<i>f</i>(0) = 1 its diagonal is unity. Forward substitution therefore returns, for <i>any</i> "
+      "candidate kernel, a dose series that reproduces the observed IOB series exactly. Applied to "
+      "real records, candidate peaks of 35 and 120 minutes both reconstruct the series to a maximum "
+      "absolute error of 3×10<sup>−15</sup> U. Goodness of fit is not merely weakly informative "
+      "about the kernel; it is <i>identically</i> uninformative. The only discriminating constraint "
+      "is that implied doses cannot be negative, and implied negative mass proved monotonically "
+      "increasing in the candidate peak (23 U at 35 minutes rising to 117 U at 120 minutes), so "
+      "that constraint has no interior optimum and always selects the shortest candidate offered.</p>")
+    A("<p>A cruder route — taking doses as the positive first differences of IOB — fails for a "
+      "related reason. Between five-minute samples the IOB decays by 1–3% of <i>total</i> insulin "
+      "on board, and in a micro-dosing loop total IOB exceeds an individual automatic bolus by an "
+      "order of magnitude, so decay swamps small doses entirely. Validated against real treatment "
+      "streams this lost 28–93% of delivered insulin and displaced the recovered peak by 12 to 102 "
+      "minutes. An independent dose record is therefore necessary, and archives holding IOB alone "
+      "are out of reach however the fitting is arranged.</p>")
+
     A("<h2>5. Discussion</h2>")
     A("<p>The two questions behave very differently. Recovering the configured curve is an exact "
       "problem and works reliably; it constitutes a practical audit of what an AID system is "
@@ -493,7 +518,8 @@ def main():
     # ---------------- Limitations ----------------
     A("<h2>6. Limitations</h2>")
     A("<ol>")
-    A("<li>Sensor lag — interstitial delay plus filter delay — is not corrected, so observed peaks "
+    A("<li>Sensor lag — interstitial delay of roughly 5–7 minutes [6, 7], plus filter delay — is not "
+      "corrected, so observed peaks "
       "are biased late by a few minutes. This is conservative for discrepancies in which the "
       "observed peak is earlier than configured, and cannot explain one that is later.</li>")
     A("<li>Peak time is dose-dependent in pharmacology, but not estimable here: fasting periods are "
@@ -520,6 +546,36 @@ def main():
       "action is, for most people, not recoverable from routine records at all. Where an individual "
       "discrepancy needs resolving, a designed test — a fasting bolus with no other insulin — will "
       "settle in days what observational data cannot settle in months.</p>")
+
+    A("<h2>References</h2>")
+    A('<ol style="font-size:9pt">')
+    A("<li>Maksimović D. Exponential insulin activity curves. Derivation and discussion, LoopKit/Loop "
+      "issue #388 (2017). The functional forms adopted by oref0 and its derivatives originate here; "
+      "the OpenAPS documentation attributes them to this discussion. <i>No peer-reviewed source "
+      "exists for this parameterisation</i> — it is a community derivation, subsequently embedded "
+      "in widely used delivery systems.</li>")
+    A("<li>De Nicolao G, Sparacino G, Cobelli C. Nonparametric input estimation in physiological "
+      "systems: problems, methods, and case studies. <i>Automatica</i> 1997;33(5). Reviews "
+      "regularised deconvolution for physiological input estimation, including ill-conditioning, "
+      "non-negativity constraints and confidence-interval assessment.</li>")
+    A("<li>Golub GH, Heath M, Wahba G. Generalized cross-validation as a method for choosing a good "
+      "ridge parameter. <i>Technometrics</i> 1979;21(2):215–223.</li>")
+    A("<li>Künsch HR. The jackknife and the bootstrap for general stationary observations. "
+      "<i>The Annals of Statistics</i> 1989;17(3):1217–1241.</li>")
+    A("<li>Forssell U, Ljung L. Closed-loop identification revisited. <i>Automatica</i> "
+      "1999;35(7):1215–1241. The obstacle addressed in §3.8: a plant operating under feedback "
+      "cannot be identified as though its input were exogenous.</li>")
+    A("<li>Basu A, Dube S, Slama M, et al. Time lag of glucose from intravascular to interstitial "
+      "compartment in humans. <i>Diabetes</i> 2013;62(12):4083–4087.</li>")
+    A("<li>Basu A, Dube S, Veettil S, et al. Time lag of glucose from intravascular to interstitial "
+      "compartment in type 1 diabetes. <i>Journal of Diabetes Science and Technology</i> 2015;9(1). "
+      "Median lag 6.8 min (4.8–9.8) in type 1 diabetes.</li>")
+    A("</ol>")
+    A('<p style="font-size:9pt"><i>Note on [1].</i> That the insulin model underlying these systems '
+      'has no peer-reviewed derivation is worth stating plainly rather than obscuring behind a '
+      'citation. It does not invalidate the model — it is smooth, monotone in the right places, and '
+      'fits logged IOB to machine precision by construction — but it means the assumed curve is a '
+      'convention rather than a measurement, which is precisely the premise of this work.</p>')
 
     A("<h2>Software</h2>")
     A("<p>All analyses are implemented in Python and available at "
