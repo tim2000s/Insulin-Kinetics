@@ -679,6 +679,54 @@ def main():
       "interval, without a leverage or stability check, will report false precision.</p>")
 
     # ---------------- Limitations ----------------
+    A("<h2>5a. Three quantities, not one</h2>")
+    A("<p>The results invite a comparison that the rest of this paper has made and that deserves "
+      "challenging: observed peak against configured peak, with the difference read as an error. "
+      "Setting the three available descriptions side by side suggests they are not the same "
+      "measurement.</p>")
+    A("<table><tr><th>Quantity</th><th>Value</th><th>Conditions</th></tr>")
+    A("<tr><td>Maximum glucose-lowering effect, product labels [8–12]</td><td>60–180 min</td>"
+      "<td>euglycaemic clamp, glucose held constant, 7–30 U</td></tr>")
+    A("<tr><td>Peak assumed by the delivery system</td><td>45–75 min</td>"
+      "<td>a convention; not a value the labels supply (§3.1.1)</td></tr>")
+    A("<tr><td>Observed response, this work</td><td>median 40 min</td>"
+      "<td>free-living, glucose falling, 0.1–1 U automatic boluses</td></tr>")
+    A("</table>")
+    A('<div class="caption"><b>Table 6.</b> Each step is roughly half the one above it. The '
+      'correlation between the lower two across 31 participants is +0.11.</div>')
+    A("<p>Four candidate explanations were tested rather than argued.</p>")
+    A("<p><b>Estimator bias — excluded.</b> Injecting a known 75-minute curve into individual "
+      "participants' own dose series and sampling returns 65 to 80 (§4.3.1). The estimator "
+      "recovers a long peak when one is present.</p>")
+    A("<p><b>Omitted basal insulin — excluded.</b> The estimator regresses on bolus insulin alone, "
+      "while a closed loop modulates basal continuously and reactively. Admitting net basal as a "
+      "second kernel moves the bolus peak by 0 to 5 minutes. Notably the fitted basal kernel peaks "
+      "at lag zero and carries 38–43% of the total kernel mass, which is the signature of the "
+      "controller's reaction rather than of insulin action.</p>")
+    A("<p><b>Counter-regulation — contributes, but does not account for it.</b> A clamp holds "
+      "glucose constant and thereby suppresses the counter-regulatory response by design; "
+      "free-living glucose falls, and opposition to that fall truncates the later part of the "
+      "response, moving the apparent peak earlier. Splitting each record by glucose level, the "
+      "peak is later in the high-glucose stratum for 11 of 16 participants, median <b>+8 "
+      "minutes</b>. Directionally as predicted, and an order of magnitude too small to close the "
+      "gap.</p>")
+    A("<p><b>Dose size — untestable at this range, and the most likely remainder.</b> Clamp studies "
+      "administer 7 to 30 units; the automatic boluses here have a median of 0.10 to 0.55 units "
+      "across participants. Absorption from a small subcutaneous depot is faster relative to its "
+      "volume, and the labels themselves document dose-dependence, reporting a 35% fall in effect "
+      "per unit from 7 to 30 units [12]. Within this cohort the correlation between a "
+      "participant's typical dose and their observed peak is +0.26 to +0.41 depending on the dose "
+      "statistic, in the predicted direction but weak, and a tertile split reverses it. That is "
+      "expected: the internal dose range spans a factor of five, the comparison against clamp doses "
+      "spans a factor of thirty to three hundred, and this data cannot bridge it.</p>")
+    A('<div class="note">The consequence for interpretation is that a difference between the '
+      'observed and the configured peak should not be read as a settings error. They are measured '
+      'under different conditions, at doses two orders of magnitude apart, on a system that is free '
+      'to counter-regulate in one case and prevented from doing so in the other. What can be said '
+      'is narrower: the configured value carries almost no information about the observed response '
+      '(correlation +0.11), so it is not serving as a per-person description of anything measurable '
+      'in that person\u2019s own data.</div>')
+
     A("<h2>6. Limitations</h2>")
     A("<ol>")
     A("<li>Sensor lag — interstitial delay of roughly 5–7 minutes [6, 7], plus filter delay — is not "
