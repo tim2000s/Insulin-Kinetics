@@ -516,6 +516,40 @@ def main():
       f"tail carries no usable signal at these dose sizes. Stratifying doses by size does not "
       f"recover it, since the tail is small relative to the residual in both strata.</p>")
 
+    A("<h3>4.3.1 Observed response does not track the configured setting</h3>")
+    A("<p>The larger subgroup — 17 participants on one delivery system, extracted with full "
+      "treatment streams — makes a pattern visible that 11 participants could not. Grouping them by "
+      "the configured curve their system is using:</p>")
+    A("<table><tr><th>Configured peak</th><th>n</th><th>Median observed peak</th>"
+      "<th>Median difference</th></tr>")
+    A("<tr><td>~35 min</td><td>1</td><td>30</td><td>−5</td></tr>")
+    A("<tr><td>~45 min</td><td>4</td><td>28</td><td>−18</td></tr>")
+    A("<tr><td>~55 min</td><td>6</td><td>38</td><td>−18</td></tr>")
+    A("<tr><td>~75 min</td><td>6</td><td>38</td><td>−37</td></tr>")
+    A("</table>")
+    A('<div class="caption"><b>Table 5.</b> Observed peak grouped by configured peak, one delivery '
+      'system, 17 participants.</div>')
+    A("<p>The observed peak sits between 28 and 38 minutes in every group, while the configured "
+      "value ranges from 35 to 75. It does not track the setting: the correlation between "
+      "configured and observed across these participants is <b>+0.34</b>, and the widening "
+      "difference in the final column arises because the observed value stays flat while the "
+      "configured value rises. Configured peaks are sharply discrete — six participants within a "
+      "minute of 55 and six near 75 — whereas observed peaks are spread continuously between 25 "
+      "and 75.</p>")
+    A("<p>Whether this is the estimator or the insulin was tested per participant rather than "
+      "assumed. Injecting a known 75-minute curve into four of these participants' own dose series "
+      "and sampling, the estimator returned 75, 70, 65 and 80 — it recovers a long peak from their "
+      "data when one is present. Three of those four return 25 to 35 minutes from their real "
+      "glucose. The short observed peaks are therefore a property of the data, not a compression "
+      "artefact of the method.</p>")
+    A('<div class="note">Two cautions attach. Exercise is uncontrolled for this entire subgroup, '
+      'since their uploader carries no step data, and physical activity accelerates the observed '
+      'fall in glucose. And one participant returns 5 minutes, at the estimator\u2019s lower bound, '
+      'which is not a credible physiological value and indicates at least one degenerate fit in the '
+      'group. Set against that, sensor lag biases every observed value LATE, so the true peaks are '
+      'if anything earlier than reported, and the labels of §3.1.1 place the maximum effect of '
+      'these analogues at one to three hours — later than any value observed here.</div>')
+
     A("<h3>4.4 Differences between the two delivery systems</h3>")
     A(f"<p>The {n_aaps} AndroidAPS and {n_trio} Trio participants are not interchangeable for these "
       f"methods, in three respects that affect what can be checked rather than what is found.</p>")
