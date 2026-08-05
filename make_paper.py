@@ -579,20 +579,32 @@ def main():
       "series are physically credible: <b>99–100% are exact multiples of the 0.05 U pump "
       "increment</b>, and rises balance falls to within 0.7–4.9% per day over year-long records, so "
       "the reconstruction is neither arbitrary nor materially incomplete.</p>")
-    A("<p>Recovered peaks are also internally consistent — refitting on six consecutive sub-windows "
-      "of a year-long record returned 78–81 minutes for one user and 56–58 for another — and the "
+    A("<p>Recovered peaks are internally consistent — refitting on six consecutive sub-windows of a "
+      "year-long record returned 78–81 minutes for one user and 56–58 for another — and the "
       "distribution across 20 users clusters where vendor presets sit, with 13 between 45 and 65 "
-      "minutes and 6 between 65 and 85. But <b>no user achieved a relative residual below 0.15, "
-      "against 0.065–0.098 in the main cohort</b>, and sub-windowing does not improve it. On a "
-      "relationship that is an algebraic identity, a residual three to ten times larger than "
-      "attainable means something in the reconstruction or the sampling is not being modelled — "
-      "the archive's irregular cadence leaves dose times uncertain by up to fifteen minutes, which "
-      "is a plausible but unconfirmed cause.</p>")
-    A('<div class="note">No curve recovered from the wider archive is reported as a finding. The '
-      'peaks are quoted only to show that the failure is one of fit quality rather than of '
-      'plausibility, and the gate that rejects them is the same one that admits the main cohort. '
-      'Extending to that archive remains open work, contingent on establishing why the identity '
-      'does not close.</div>')
+      "minutes and 6 between 65 and 85. But no user achieved a relative residual below 0.15, "
+      "against 0.065–0.098 in the main cohort, and sub-windowing does not improve it.</p>")
+    A("<p><b>Whether a poor residual implies a wrong peak was then tested directly.</b> One "
+      "participant in the main cohort runs a system that uploads <i>bolusinsulin</i> as well as a "
+      "full treatment stream, so for that person the reconstruction input and the ground truth are "
+      "both available. Reconstructed doses are all exact multiples of the pump increment, but they "
+      "capture only <b>62% of individual deliveries</b> — 1195 of 1928 — because a dose delivered "
+      "in the same interval that an older one ages out produces no net rise and is invisible. Those "
+      "missed deliveries are small ones: <b>88% of total units are recovered</b>.</p>")
+    A("<p>Fitted against the same insulin-on-board series, the reconstructed dose series returns a "
+      "peak of 75.1 minutes where the true treatment stream returns 71.8, and where the full "
+      "estimator of §3.3 on properly binned data returns 74.9. <b>A reconstruction missing "
+      "two-fifths of the doses recovers the peak to within a few minutes</b>, which is what the "
+      "separability of shape from amplitude (§3.2) predicts: the missing deliveries are small and "
+      "near-uniformly distributed, so they attenuate the response without moving it in time.</p>")
+    A('<div class="note">The wider-archive peaks are therefore <i>not</i> discredited by their '
+      'residuals — a residual inflated by incomplete dose recovery is consistent with an '
+      'approximately correct peak. They are nonetheless not reported as findings here, because that '
+      'validation rests on a single participant, and because the platform of the archive users is '
+      'not recorded so it cannot be established that they upload the field on the same terms. What '
+      'the exercise establishes is narrower and more useful: the field needed to extend this work '
+      'is uploaded by one delivery system and not the other, so the reach of the method is set by '
+      'the uploader rather than by the mathematics.</div>')
 
     A("<h2>5. Discussion</h2>")
     A("<p>The two questions behave very differently. Recovering the configured curve is an exact "
