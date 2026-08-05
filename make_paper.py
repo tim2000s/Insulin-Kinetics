@@ -557,28 +557,42 @@ def main():
       "the cause is made here.</p>")
 
     # ---------------- Discussion ----------------
-    A("<h3>4.6 Why the cohort could not be enlarged</h3>")
-    A("<p>A further archive was available holding 6.6 million controller cycles from 110 users of "
-      "oref-derived systems, 67 of them with a logged insulin-on-board series and several with more "
-      "than five years of records — an order of magnitude more data than analysed here. It carries "
-      "no record of delivered doses, so extending Gate 1 to it requires reconstructing the dose "
-      "series from the IOB series itself. This is not possible, for a structural reason.</p>")
-    A("<p>Writing the identity of (5) on a regular grid gives a lower-triangular system, and because "
-      "<i>f</i>(0) = 1 its diagonal is unity. Forward substitution therefore returns, for <i>any</i> "
-      "candidate kernel, a dose series that reproduces the observed IOB series exactly. Applied to "
-      "real records, candidate peaks of 35 and 120 minutes both reconstruct the series to a maximum "
-      "absolute error of 3×10<sup>−15</sup> U. Goodness of fit is not merely weakly informative "
-      "about the kernel; it is <i>identically</i> uninformative. The only discriminating constraint "
-      "is that implied doses cannot be negative, and implied negative mass proved monotonically "
-      "increasing in the candidate peak (23 U at 35 minutes rising to 117 U at 120 minutes), so "
-      "that constraint has no interior optimum and always selects the shortest candidate offered.</p>")
-    A("<p>A cruder route — taking doses as the positive first differences of IOB — fails for a "
-      "related reason. Between five-minute samples the IOB decays by 1–3% of <i>total</i> insulin "
-      "on board, and in a micro-dosing loop total IOB exceeds an individual automatic bolus by an "
-      "order of magnitude, so decay swamps small doses entirely. Validated against real treatment "
-      "streams this lost 28–93% of delivered insulin and displaced the recovered peak by 12 to 102 "
-      "minutes. An independent dose record is therefore necessary, and archives holding IOB alone "
-      "are out of reach however the fitting is arranged.</p>")
+    A("<h3>4.6 Extending to a wider archive</h3>")
+    A("<p>A larger archive of oref-derived records was available: 6.6 million controller cycles "
+      "from 110 users, several with more than five years of records. It carries no treatment "
+      "stream, so extending the parametric estimator to it requires recovering the dose series "
+      "from the logged data. Two routes were tried; neither delivers results meeting the standard "
+      "the main cohort sets, for different reasons worth separating.</p>")
+    A("<p><b>From the insulin-on-board series alone: impossible in principle.</b> Writing the "
+      "identity of (5) on a regular grid gives a lower-triangular system whose diagonal is unity, "
+      "because <i>f</i>(0) = 1. Forward substitution therefore returns, for <i>any</i> candidate "
+      "kernel, a dose series reproducing the observed series exactly — verified on real records at "
+      "a maximum absolute error of 3×10<sup>−15</sup> U for candidate peaks of 35 and 120 minutes "
+      "alike. Goodness of fit is not weakly informative here; it is identically uninformative. The "
+      "only discriminating constraint is that implied doses cannot be negative, and implied "
+      "negative mass rises monotonically with the candidate peak (23 U at 35 minutes to 117 U at "
+      "120), so it has no interior optimum and always selects the shortest candidate offered.</p>")
+    A("<p><b>From the cumulative delivered-insulin series: possible, but the fits do not qualify.</b> "
+      "A subset of the archive (21 users) additionally logs <i>bolusinsulin</i>, the insulin "
+      "delivered within the lookback window, which is a different quantity from the insulin "
+      "remaining and therefore breaks the degeneracy. Doses recovered as the positive jumps in that "
+      "series are physically credible: <b>99–100% are exact multiples of the 0.05 U pump "
+      "increment</b>, and rises balance falls to within 0.7–4.9% per day over year-long records, so "
+      "the reconstruction is neither arbitrary nor materially incomplete.</p>")
+    A("<p>Recovered peaks are also internally consistent — refitting on six consecutive sub-windows "
+      "of a year-long record returned 78–81 minutes for one user and 56–58 for another — and the "
+      "distribution across 20 users clusters where vendor presets sit, with 13 between 45 and 65 "
+      "minutes and 6 between 65 and 85. But <b>no user achieved a relative residual below 0.15, "
+      "against 0.065–0.098 in the main cohort</b>, and sub-windowing does not improve it. On a "
+      "relationship that is an algebraic identity, a residual three to ten times larger than "
+      "attainable means something in the reconstruction or the sampling is not being modelled — "
+      "the archive's irregular cadence leaves dose times uncertain by up to fifteen minutes, which "
+      "is a plausible but unconfirmed cause.</p>")
+    A('<div class="note">No curve recovered from the wider archive is reported as a finding. The '
+      'peaks are quoted only to show that the failure is one of fit quality rather than of '
+      'plausibility, and the gate that rejects them is the same one that admits the main cohort. '
+      'Extending to that archive remains open work, contingent on establishing why the identity '
+      'does not close.</div>')
 
     A("<h2>5. Discussion</h2>")
     A("<p>The two questions behave very differently. Recovering the configured curve is an exact "
