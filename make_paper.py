@@ -145,8 +145,8 @@ def main():
       f"to a different family, and showed no bias attributable to controller feedback "
       f"({fb_excess.group(1) if fb_excess else 'n/a'} min against an open-loop reference). Duration "
       f"of action was not identifiable in {len(dia_na)} of {len(cohort)} users. Discrepancies "
-      f"between configured and observed peak reached 77 minutes; in one case the cause was traced "
-      f"to a defect in the delivery system's configuration handling.</p>")
+      f"between configured and observed peak reached 77 minutes, and in one participant the "
+      f"recovered configured curve did not correspond to the insulin they reported using.</p>")
     A(f"<p><i>Conclusion.</i> The configured curve is recoverable exactly and provides a practical "
       f"audit of what a system is actually computing. The observed curve is recoverable with "
       f"useful precision but remains observational; duration of action is largely not recoverable, "
@@ -236,7 +236,8 @@ def main():
       '<span class="eqn">(6)</span></div>')
     A("<p>by bounded least squares (Trust Region Reflective), with <i>t</i><sub>p</sub> ∈ [10, 180] "
       "and <i>t</i><sub>d</sub> ∈ [120, 1440] minutes.</p>")
-    A("<p>The index set <i>M</i> excludes observations within ten minutes of any bolus. This matters "
+    A("<p>The index set <i>M</i> excludes observations falling within ten minutes <i>after</i> any "
+      "bolus. This matters "
       "more than it appears. Insulin on board steps by the whole dose at delivery, so a small error "
       "in placing that step leaves a residual the size of the dose; the step also lands in different "
       "bins on different systems, since a controller that computes IOB at the start of its cycle "
@@ -277,7 +278,8 @@ def main():
       'ε<sub>t</sub><span class="eqn">(8)</span></div>')
     A('<div class="where">β<sub>k</sub> — one free coefficient per five-minute lag, '
       'k = 0…K, K = 72 (six hours); the activity curve itself, with no assumed shape.<br>'
-      '<i>c</i> — a time-of-day profile, one coefficient per thirty-minute clock bin, shared across '
+      '<i>c</i> — a time-of-day profile, one coefficient per thirty-minute clock bin (48 bins, one '
+      'dropped for identifiability against the day intercepts), shared across '
       'all days.<br><i>u</i> — a per-day intercept absorbing that day\'s basal rate, sensitivity '
       'level and sensor offset.</div>')
     A("<p>The peak is read off directly as <i>t̂</i><sub>p</sub> = 5 · arg max<sub>k</sub> "
@@ -313,9 +315,16 @@ def main():
       '<i>H</i>(λ) = <i>X</i>(<i>X</i><sup>⊤</sup><i>X</i> + λ<i>D</i><sup>⊤</sup><i>D</i>)'
       '<sup>−1</sup><i>X</i><sup>⊤</sup><span class="eqn">(10)</span></div>')
     A("<p>over a logarithmic grid, using the trace identity tr(<i>XHX</i><sup>⊤</sup>) = "
-      "tr(<i>H X</i><sup>⊤</sup><i>X</i>) to avoid forming an <i>n</i>×<i>n</i> matrix. Implemented "
-      "in <code>gate4_deconvolution.py</code>, functions <code>design</code>, <code>fit_fir</code> "
-      "and <code>gcv</code>.</p>")
+      "tr(<i>H X</i><sup>⊤</sup><i>X</i>) to avoid forming an <i>n</i>×<i>n</i> matrix; with "
+      "<i>n</i> ≈ 31,000 and <i>p</i> ≈ 244 the two forms agree to 6×10<sup>−12</sup> and differ in "
+      "cost by more than three orders of magnitude.</p>")
+    A("<p>The smoothing weight is selected on the <i>unconstrained</i> ridge solution, for which "
+      "the hat matrix and hence the effective degrees of freedom are available in closed form, and "
+      "the selected value is then applied to the non-negativity-constrained fit of (9). The "
+      "constraint binds only in the tail, where the unpenalised estimate would otherwise oscillate "
+      "about zero, so this decoupling has no material effect on the recovered peak. Implemented in "
+      "<code>gate4_deconvolution.py</code>, functions <code>design</code>, <code>fit_fir</code> and "
+      "<code>gcv</code>.</p>")
 
     A("<h3>3.7 Uncertainty</h3>")
     A("<p>Intervals are obtained by block bootstrap resampling whole days with replacement, "
@@ -443,25 +452,28 @@ def main():
       "confirmed that zero shift gives the best residual, and that a 30-minute error — far beyond "
       "anything plausible — could not reproduce the largest observed discrepancies.</p>")
 
-    A("<h3>4.5 A configuration defect</h3>")
-    A("<p>The largest well-reconciled discrepancy prompted examination of the delivery system's "
-      "source code. The system computes insulin on board from a configured curve setting that is "
-      "not exposed anywhere in its user interface and is written only as a side effect of pump "
-      "events that may not recur; no reconciliation occurs at application start. The participant's "
-      "system was found to be computing on the shipped default curve of 75 minutes rather than the "
-      "curve corresponding to their insulin. A 45-minute curve fitted their logged IOB 4.4 times "
-      "worse than 75 minutes, and the 75-minute value was stable across eight disjoint 15-day "
-      "windows. The discrepancy was therefore a software configuration fault, detected from "
-      "outside the device using only its own uploaded records.</p>")
+    A("<h3>4.5 A configured curve at variance with the reported insulin</h3>")
+    A("<p>In one participant the recovered configured curve did not correspond to the insulin they "
+      "reported using. The recovered peak was 75 minutes, the default value for their system; a "
+      "45-minute curve — the value associated with their reported insulin in other systems — fitted "
+      "their logged insulin-on-board 4.4 times worse (relative residual 0.68 against 0.16), and the "
+      "75-minute value was stable at 73.8 to 77.3 minutes across eight disjoint 15-day windows with "
+      "a relative residual of 0.065 to 0.098. Their extract passed every integrity check in §3.9.</p>")
+    A("<p>This establishes what the system was computing with, which is the limit of what these "
+      "records can show. It does not establish why. The discrepancy is consistent with several "
+      "explanations — a setting that was never applied, one that was reset, or a mismatch between "
+      "the value shown in the interface and the value used in the calculation — and distinguishing "
+      "them requires information from the device that is not present in its uploads. No claim about "
+      "the cause is made here.</p>")
 
     # ---------------- Discussion ----------------
     A("<h2>5. Discussion</h2>")
     A("<p>The two questions behave very differently. Recovering the configured curve is an exact "
       "problem and works reliably; it constitutes a practical audit of what an AID system is "
-      "actually computing, independent of what its interface reports, and it identified both an "
-      "unrecorded change of insulin curve and a software fault that had persisted unnoticed for "
-      "four months. Recovering the observed curve is an inference, and the design of that inference "
-      "turned out to matter far more than the choice of model family.</p>")
+      "actually computing, independent of what is reported elsewhere, and it identified both an "
+      "unrecorded change of insulin curve and a configured curve at variance with the insulin the "
+      "participant believed they were using. Recovering the observed curve is an inference, and the "
+      "design of that inference turned out to matter far more than the choice of model family.</p>")
     A("<p>The instructive failure was an earlier parametric estimator applied to overnight fasting "
       "windows. It was unbiased on its own generating model to within 0.3 minutes, and shape "
       "misspecification biased it by only −10 to +5 minutes; yet across 96 defensible analytical "
@@ -499,8 +511,9 @@ def main():
     # ---------------- Conclusion ----------------
     A("<h2>7. Conclusion</h2>")
     A("<p>A person's configured insulin curve can be recovered exactly from their own AID records, "
-      "and doing so is a useful audit: it detects settings that differ from what the interface "
-      "reports, and changes that no event record documents. The curve the insulin appears to follow "
+      "and doing so is a useful audit: it detects curves that differ from the one the user believes "
+      "is in use, and changes that no event record documents, without requiring access to the "
+      "device. The curve the insulin appears to follow "
       "can be recovered with useful precision by non-parametric deconvolution, provided the drift "
       "confounder is identified by pooling across days rather than modelled within windows, and the "
       "result is robust to the controller feedback inherent in closed-loop data. The duration of "
