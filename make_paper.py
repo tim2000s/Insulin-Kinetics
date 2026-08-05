@@ -206,6 +206,45 @@ def main():
       "<code>gate1_recover_known_curve.py</code>, functions <code>iob_fraction</code> and "
       "<code>activity</code>.</p>")
 
+    A("<h3>3.1.1 What the regulatory labels actually specify</h3>")
+    A("<p>The pharmacodynamics behind these curves are published: euglycaemic-clamp "
+      "glucose-infusion-rate profiles appear in the European product information for every analogue "
+      "in this cohort. What those documents supply, however, is not what an AID system needs.</p>")
+    A("<table><tr><th>Analogue</th><th>Onset of action</th><th>Maximum effect</th>"
+      "<th>Duration</th><th>Peak assumed by AID</th></tr>")
+    A("<tr><td>insulin lispro [8]</td><td>~15 min</td><td><i>not stated</i></td><td>2–5 h</td>"
+      "<td>75 min</td></tr>")
+    A("<tr><td>insulin aspart [9]</td><td>10–20 min</td><td>1–3 h</td><td>3–5 h</td>"
+      "<td>75 min</td></tr>")
+    A("<tr><td>insulin glulisine [10]</td><td>10–20 min</td><td><i>not stated</i></td><td>~4 h</td>"
+      "<td>75 min</td></tr>")
+    A("<tr><td>faster-acting insulin aspart [11]</td><td>5 min earlier than aspart</td>"
+      "<td>1–3 h</td><td><i>not stated</i></td><td>55 min</td></tr>")
+    A("<tr><td>ultra-rapid lispro [12]</td><td>20 min</td><td>1–3 h</td><td>5 h</td>"
+      "<td>55 min</td></tr>")
+    A("</table>")
+    A('<div class="caption"><b>Table 1.</b> Pharmacodynamic parameters as stated in the European '
+      'product information, against the peak time assumed by oref-derived delivery systems for each '
+      'analogue. Quotations are verbatim from section 5.1 of each document.</div>')
+    A("<p>Three features of this table bear on everything that follows. Every label that states a "
+      "maximum effect states the same interval — <b>one to three hours</b> — irrespective of "
+      "analogue class; the labels differentiate the ultra-rapid analogues from the rapid ones on "
+      "<i>onset</i> and <i>duration</i>, not on time to peak. Two of the five do not state a peak "
+      "at all. And the interval that is stated is several times wider than the 45-to-75-minute "
+      "values delivery systems use.</p>")
+    A("<p>The 55-versus-75-minute distinction that AID systems draw is therefore not a reading of "
+      "the labels; it is a convention that narrows a published range to a single number, and does "
+      "so along an axis the labels do not resolve. That is the gap this work measures. It also "
+      "explains why two systems can assign different peaks to the same insulin — 45 minutes in one, "
+      "55 in another — with neither contradicting the product information, because the product "
+      "information does not adjudicate between them.</p>")
+    A('<div class="note">The labels are also explicit that these are not fixed constants. The '
+      'product information for two of the analogues states that the duration of action "will vary '
+      'according to the dose, injection site, blood flow, temperature and level of physical '
+      'activity" [9, 11], and one reports that total and maximum glucose-lowering effect increase '
+      'with dose across the therapeutic range [12]. A single per-person curve is an approximation '
+      'the labels themselves decline to endorse.</div>')
+
     A("<h3>3.2 Identification</h3>")
     A("<p>In a window where insulin is the only influence on glucose <i>g</i>,</p>")
     A('<div class="eq">d<i>g</i>/d<i>t</i> ≈ −ISF · Σ<sub>j</sub> <i>d</i><sub>j</sub> '
@@ -376,14 +415,14 @@ def main():
 
     A("<h3>4.1 Validation</h3>")
     A(f"<p>All positive controls passed ({n_fail} failures). Recovery of known peaks by the "
-      f"non-parametric estimator is shown in Table 1.</p>")
+      f"non-parametric estimator is shown in Table 2.</p>")
     if selftest:
         A("<table><tr><th>Generating curve</th><th>True peak (min)</th>"
           "<th>Recovered, noise-free</th><th>Recovered, realistic noise</th></tr>")
         for name, t, c, n in selftest:
             A(f"<tr><td>{name}</td><td>{t}</td><td>{c}</td><td>{n}</td></tr>")
         A("</table>")
-        A('<div class="caption"><b>Table 1.</b> Recovery of a known activity peak from simulated '
+        A('<div class="caption"><b>Table 2.</b> Recovery of a known activity peak from simulated '
           'glucose, using real dose series and sampling. Noise-free recovery is exact in every '
           'case, including the two families the estimator does not assume.</div>')
     if fb_mae:
@@ -392,7 +431,7 @@ def main():
             lbl = f"{g} (open loop reference)" if float(g) == 0 else g
             A(f"<tr><td>{lbl}</td><td>{e}</td></tr>")
         A("</table>")
-        A(f'<div class="caption"><b>Table 2.</b> Recovery under simulated closed-loop feedback. '
+        A(f'<div class="caption"><b>Table 3.</b> Recovery under simulated closed-loop feedback. '
           f'Excess error attributable to feedback, over the open-loop reference: '
           f'<b>{fb_excess.group(1) if fb_excess else "n/a"} minutes</b>. Induced endogeneity reached '
           f'+0.27 to +0.37, within the range observed in the real records, so the test exercises the '
@@ -407,7 +446,7 @@ def main():
           f"<td>{r['fit']:.3f}{'*' if r['flag'] else ''}</td><td>{r['h1']} / {r['h2']}</td>"
           f"<td>{r['obs']}</td><td>{r['gap']}</td></tr>")
     A("</table>")
-    A('<div class="caption"><b>Table 3.</b> All values in minutes. The relative residual is that of '
+    A('<div class="caption"><b>Table 4.</b> All values in minutes. The relative residual is that of '
       'the parametric fit against an exact identity; * marks values above 0.15, indicating dose '
       'records that do not reconcile with the system\'s own logged IOB. "Duration n/a" denotes a '
       'duration the leverage criterion of §3.4 found unidentifiable. The difference is observed '
@@ -524,7 +563,7 @@ def main():
       "observed peak is earlier than configured, and cannot explain one that is later.</li>")
     A("<li>Kinetics are dose-dependent, and the product information documents it: the glucose "
       "infusion rate AUC for one ultra-rapid analogue is 1080, 1860 and 3030 mg/kg at 7, 15 and 30 "
-      "units [8] — 154, 124 and 101 mg/kg per unit, a 35% fall in effect per unit across a "
+      "units [12] — 154, 124 and 101 mg/kg per unit, a 35% fall in effect per unit across a "
       "four-fold dose range. A single kernel fitted across all dose sizes is therefore a "
       "compromise. It is not estimable separately here: fasting periods are dominated by small "
       "automatic boluses by construction, and where both dose classes are present the two "
@@ -557,7 +596,7 @@ def main():
       "issue #388 (2017). The <i>functional form</i> adopted by oref0 and its derivatives originates "
       "here; the OpenAPS documentation attributes it to this discussion. The <i>curve shape and "
       "parameter values</i> it reproduces derive from published euglycaemic-clamp pharmacodynamics "
-      "in regulatory submissions and product information [8, 9].</li>")
+      "in regulatory submissions and product information [8\u201312]; see Table 1.</li>")
     A("<li>De Nicolao G, Sparacino G, Cobelli C. Nonparametric input estimation in physiological "
       "systems: problems, methods, and case studies. <i>Automatica</i> 1997;33(5). Reviews "
       "regularised deconvolution for physiological input estimation, including ill-conditioning, "
@@ -574,18 +613,28 @@ def main():
     A("<li>Basu A, Dube S, Veettil S, et al. Time lag of glucose from intravascular to interstitial "
       "compartment in type 1 diabetes. <i>Journal of Diabetes Science and Technology</i> 2015;9(1). "
       "Median lag 6.8 min (4.8–9.8) in type 1 diabetes.</li>")
-    A("<li>Lyumjev (insulin lispro-aabc) Summary of Product Characteristics / US Prescribing "
-      "Information. Onset of action 20 minutes; maximum glucose-lowering effect between 1 and 3 "
-      "hours; duration of action approximately 5 hours. AUC of the glucose infusion rate 1080, 1860 "
-      "and 3030 mg/kg following 7, 15 and 30 units respectively.</li>")
-    A("<li>Fiasp (faster-acting insulin aspart) Summary of Product Characteristics. Onset of action "
-      "5 minutes earlier and time to maximum glucose infusion rate 11 minutes earlier than insulin "
-      "aspart; maximum glucose-lowering effect between 1 and 3 hours.</li>")
+    A("<li>Humalog (insulin lispro), EMA product information, section 5.1: rapid onset of action "
+      "approximately 15 minutes; duration of activity 2 to 5 hours.</li>")
+    A("<li>NovoRapid (insulin aspart), EMA product information, section 5.1: \"the onset of action "
+      "will occur within 10\u201320 minutes of injection. The maximum effect is exerted between 1 and "
+      "3 hours after the injection. The duration of action is 3 to 5 hours.\"</li>")
+    A("<li>Apidra (insulin glulisine), EMA product information: onset within 10\u201320 minutes, "
+      "duration approximately 4 hours; serum T<sub>max</sub> 55 minutes versus 82 minutes for "
+      "soluble human insulin.</li>")
+    A("<li>Fiasp (faster-acting insulin aspart), EMA product information, section 5.1: \"The onset of "
+      "action was 5 minutes earlier and time to maximum glucose infusion rate was 11 minutes earlier "
+      "with Fiasp than with NovoRapid. The maximum glucose-lowering effect of Fiasp occurred between "
+      "1 and 3 hours after injection.\"</li>")
+    A("<li>Lyumjev (ultra-rapid insulin lispro), EMA product information, section 5.1: \"Onset of "
+      "action of Lyumjev was 20 minutes post dose, 11 minutes faster than Humalog. Maximum "
+      "glucose-lowering effect of Lyumjev occurred between 1 and 3 hours after injection. The "
+      "duration of action of Lyumjev was 5 hours, 44 minutes shorter than Humalog.\" AUC of the "
+      "glucose infusion rate 1080, 1860 and 3030 mg/kg following 7, 15 and 30 units.</li>")
     A("</ol>")
     A('<p style="font-size:9pt"><i>Note on the provenance of the model.</i> The pharmacodynamics '
       'underlying these curves are well documented: regulatory submissions and product information '
       'report euglycaemic-clamp glucose-infusion-rate profiles from which onset, time to peak and '
-      'duration are read directly [8, 9]. What has no peer-reviewed source is the specific '
+      'duration are read directly [8\u201312]. What has no peer-reviewed source is the specific '
       'two-parameter functional form used to interpolate them [1]. The distinction matters for this '
       'work in one respect. The clamp literature reports a maximum glucose-lowering effect between '
       'one and three hours, a window several times wider than the 45-to-75-minute peaks that '
