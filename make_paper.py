@@ -742,6 +742,45 @@ def main():
       '(correlation +0.11), so it is not serving as a per-person description of anything measurable '
       'in that person\u2019s own data.</div>')
 
+    A("<h2>5b. Audit of the observation model</h2>")
+    A("<p>A reported peak of 40 minutes against published values three to four times larger puts "
+      "the burden on the estimator, so every step between the glucose series and the reported "
+      "number was examined for something that could produce it artefactually. Two biases were found. "
+      "Both are real, both are quantifiable, and both make the reported peak too <i>early</i>.</p>")
+    A("<p><b>Half-bin alignment.</b> The target is a forward difference, "
+      "Δ<i>g</i><sub>t</sub> = <i>g</i><sub>t+1</sub> − <i>g</i><sub>t</sub>, regressed on "
+      "<i>dose</i><sub>t−k</sub>. The change over the interval is attributed to a lag of exactly "
+      "5<i>k</i> minutes when the mean lag across that interval is 5<i>k</i> + 2.5. Every reported "
+      "peak understates by <b>2.5 minutes</b>.</p>")
+    A("<p><b>Residual autocorrelation at five-minute sampling.</b> Glucose increments are not "
+      "independent — lag-one residual correlation is around +0.44 — which violates the assumption "
+      "under which the smoothing weight is chosen. Thinning the sample to break that dependence "
+      "moves the estimate later and it converges by one-in-three (fifteen-minute spacing): +5 min "
+      "for two participants examined, +15 for a third, 0 for others. Taking the converged value is "
+      "the correct estimate; the five-minute figure is <b>0 to 15 minutes early</b>.</p>")
+    A("<p>Together these place a typical corrected peak near <b>45 minutes</b> rather than the 40 "
+      "reported. Everything else tested showed either no material effect or a bias in the same "
+      "direction:</p>")
+    A("<ul>")
+    A("<li><b>Non-negativity constraint</b> — binding at short lags (three of the first six "
+      "coefficients clipped to zero, with substantial negative mass in an unconstrained refit), "
+      "because the controller doses in response to rising glucose and glucose changes are "
+      "autocorrelated. Suppressing the early kernel pushes the peak <i>later</i>. Removing the "
+      "constraint changes the peak by less than five minutes.</li>")
+    A("<li><b>Sensor filtering</b> — CGM output is smoothed upstream, and any low-pass filter "
+      "delays the apparent response. It cannot produce a peak that is too early.</li>")
+    A("<li><b>Day intercepts</b> — dropping days contributing fewer than twenty eligible samples "
+      "changes nothing.</li>")
+    A("<li><b>Smoothing weight</b> — varying λ by a factor of thirty in either direction moves the "
+      "peak by at most five minutes.</li>")
+    A("<li><b>Eligibility asymmetry</b> — the mask applies to the target sample, and around 5% of "
+      "successor samples fail it. Requiring both moves the peak by 0 to 5 minutes.</li>")
+    A("</ul>")
+    A('<div class="note">The audit therefore does not overturn the result but does revise it: '
+      'reported peaks are systematically a few minutes early, and a corrected typical value is '
+      'nearer 45 than 40 minutes. That remains well below the 60-180 minutes the labels state, and '
+      'no mechanism was found that biases the estimate early beyond the two quantified here.</div>')
+
     A("<h2>6. Limitations</h2>")
     A("<ol>")
     A("<li>Sensor lag — interstitial delay of roughly 5–7 minutes [6, 7], plus filter delay — is not "
