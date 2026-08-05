@@ -43,6 +43,8 @@ you are in before you try.
 | `gate1_controls.py` | Post-bolus mask sweep, two-kernel dose-size negative control, and the kernel-tail-vs-noise test that decides whether a DIA is worth quoting. |
 | `extract_integrity.py` | Is the pipeline itself faking the answer? Derivation, duplication, dose completeness and timestamp alignment — all kernel-free. |
 | `feedback_simulation.py` | The blind spot both self-tests share: they simulate glucose *from* the doses, making the input exogenous by construction. This closes the loop — a controller doses in response to glucose — and checks the peak still comes back. |
+| `make_report.py` | Runs the whole suite and renders the full 37-page PDF. |
+| `make_paper.py` | The write-up: abstract, full methods with the estimator mathematics, results, discussion, limitations. Numbers parsed from `build/`, not transcribed. `--anonymise` re-keys participants for external circulation. |
 | `run_cohort.py` | Drives Gate 1 (+ disjoint halves) and Gate 4 across a user list into one comparison table. User ids and timezones are supplied at runtime, never committed. |
 | `gate3_dose_split.py` | **Does the peak differ between large and small doses?** Two kernels, one per dose stratum, with separate amplitudes. Read it against the two-kernel Gate 1 control, which has a known answer of zero. |
 
