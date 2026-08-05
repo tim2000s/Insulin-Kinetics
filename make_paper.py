@@ -522,9 +522,13 @@ def main():
       "corrected, so observed peaks "
       "are biased late by a few minutes. This is conservative for discrepancies in which the "
       "observed peak is earlier than configured, and cannot explain one that is later.</li>")
-    A("<li>Peak time is dose-dependent in pharmacology, but not estimable here: fasting periods are "
-      "dominated by small automatic boluses by construction, and where both dose classes are "
-      "present the two regressors have a median correlation up to 0.94.</li>")
+    A("<li>Kinetics are dose-dependent, and the product information documents it: the glucose "
+      "infusion rate AUC for one ultra-rapid analogue is 1080, 1860 and 3030 mg/kg at 7, 15 and 30 "
+      "units [8] — 154, 124 and 101 mg/kg per unit, a 35% fall in effect per unit across a "
+      "four-fold dose range. A single kernel fitted across all dose sizes is therefore a "
+      "compromise. It is not estimable separately here: fasting periods are dominated by small "
+      "automatic boluses by construction, and where both dose classes are present the two "
+      "regressors have a median correlation up to 0.94.</li>")
     A("<li>Unannounced carbohydrate cannot be excluded, only made unlikely; for participants who "
       "never enter carbohydrate the carbohydrate-on-board filter is inert.</li>")
     A("<li>Physical activity is uncontrolled where the uploader provides no step data.</li>")
@@ -550,10 +554,10 @@ def main():
     A("<h2>References</h2>")
     A('<ol style="font-size:9pt">')
     A("<li>Maksimović D. Exponential insulin activity curves. Derivation and discussion, LoopKit/Loop "
-      "issue #388 (2017). The functional forms adopted by oref0 and its derivatives originate here; "
-      "the OpenAPS documentation attributes them to this discussion. <i>No peer-reviewed source "
-      "exists for this parameterisation</i> — it is a community derivation, subsequently embedded "
-      "in widely used delivery systems.</li>")
+      "issue #388 (2017). The <i>functional form</i> adopted by oref0 and its derivatives originates "
+      "here; the OpenAPS documentation attributes it to this discussion. The <i>curve shape and "
+      "parameter values</i> it reproduces derive from published euglycaemic-clamp pharmacodynamics "
+      "in regulatory submissions and product information [8, 9].</li>")
     A("<li>De Nicolao G, Sparacino G, Cobelli C. Nonparametric input estimation in physiological "
       "systems: problems, methods, and case studies. <i>Automatica</i> 1997;33(5). Reviews "
       "regularised deconvolution for physiological input estimation, including ill-conditioning, "
@@ -570,12 +574,23 @@ def main():
     A("<li>Basu A, Dube S, Veettil S, et al. Time lag of glucose from intravascular to interstitial "
       "compartment in type 1 diabetes. <i>Journal of Diabetes Science and Technology</i> 2015;9(1). "
       "Median lag 6.8 min (4.8–9.8) in type 1 diabetes.</li>")
+    A("<li>Lyumjev (insulin lispro-aabc) Summary of Product Characteristics / US Prescribing "
+      "Information. Onset of action 20 minutes; maximum glucose-lowering effect between 1 and 3 "
+      "hours; duration of action approximately 5 hours. AUC of the glucose infusion rate 1080, 1860 "
+      "and 3030 mg/kg following 7, 15 and 30 units respectively.</li>")
+    A("<li>Fiasp (faster-acting insulin aspart) Summary of Product Characteristics. Onset of action "
+      "5 minutes earlier and time to maximum glucose infusion rate 11 minutes earlier than insulin "
+      "aspart; maximum glucose-lowering effect between 1 and 3 hours.</li>")
     A("</ol>")
-    A('<p style="font-size:9pt"><i>Note on [1].</i> That the insulin model underlying these systems '
-      'has no peer-reviewed derivation is worth stating plainly rather than obscuring behind a '
-      'citation. It does not invalidate the model — it is smooth, monotone in the right places, and '
-      'fits logged IOB to machine precision by construction — but it means the assumed curve is a '
-      'convention rather than a measurement, which is precisely the premise of this work.</p>')
+    A('<p style="font-size:9pt"><i>Note on the provenance of the model.</i> The pharmacodynamics '
+      'underlying these curves are well documented: regulatory submissions and product information '
+      'report euglycaemic-clamp glucose-infusion-rate profiles from which onset, time to peak and '
+      'duration are read directly [8, 9]. What has no peer-reviewed source is the specific '
+      'two-parameter functional form used to interpolate them [1]. The distinction matters for this '
+      'work in one respect. The clamp literature reports a maximum glucose-lowering effect between '
+      'one and three hours, a window several times wider than the 45-to-75-minute peaks that '
+      'delivery systems adopt; the preset values are therefore a narrowing of the published range '
+      'rather than a quantity the label supplies, and an individual can sit anywhere within it.</p>')
 
     A("<h2>Software</h2>")
     A("<p>All analyses are implemented in Python and available at "
