@@ -22,6 +22,8 @@ import glob
 import os
 import re
 
+from platform_detect import detect as detect_platform
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 CSS = """
@@ -112,6 +114,13 @@ def main():
     n_samp = {u: (re.search(r"([\d,]+) usable 5-minute samples", g4[u]).group(1)
                   if re.search(r"([\d,]+) usable 5-minute samples", g4[u]) else "?") for u in users}
 
+    plat = detect_platform()
+    plat = {u: v for u, v in plat.items() if u in users}
+    n_aaps = sum(1 for _, (p, _) in plat.items() if p == "AAPS")
+    n_trio = sum(1 for _, (p, _) in plat.items() if p == "Trio")
+    spans = [int(v) for v in n_days.values() if str(v).isdigit()]
+    min_span, max_span = (min(spans), max(spans)) if spans else ("?", "?")
+
     H = []
     A = H.append
     A("<h1>Estimating insulin action peak time from closed-loop data: "
@@ -175,14 +184,27 @@ def main():
 
     # ---------------- Data ----------------
     A("<h2>2. Data</h2>")
-    A(f"<p>Records from {len(cohort)} adults using AID systems were analysed, comprising per-cycle "
+    A(f"<p>Records from {len(cohort)} people using AID systems were analysed, comprising per-cycle "
       f"controller decisions at five-minute cadence (glucose, carbohydrate on board, insulin on "
       f"board, its basal component, and step counts where the uploader provides them) and a "
       f"treatment stream of delivered insulin and entered carbohydrate. Observation periods ranged "
-      f"to {max(int(v) for v in n_days.values() if v.isdigit())} days per participant. No "
-      f"intervention was made and no protocol imposed; these are routine records.</p>")
+      f"from {min_span} to {max_span} days per participant; the shortest contributes only "
+      f"{min_span} days and its estimates should be read accordingly. No intervention was made and "
+      f"no protocol imposed; these are routine records. No demographic data were available, so no "
+      f"characteristics of the participants beyond their delivery system are reported.</p>")
+    A(f"<p>Two delivery systems are represented: <b>{n_aaps} AndroidAPS</b> and <b>{n_trio} Trio</b> "
+      f"users. Neither is recorded in the extract, so the platform was identified from three "
+      f"independent features of the records themselves — whether boluses carry a type field, "
+      f"whether bolus insulin-on-board is uploaded or must be derived, and whether the uploader "
+      f"provides step counts. All {len(cohort)} classifications were unanimous across the three "
+      f"({{}}). The distinction is not bookkeeping: it changes which cross-checks are available and "
+      f"which confounders can be controlled, as set out in \u00a74.4.</p>".format(
+          ", ".join(f"{u}: {p}" for u, (p, _) in sorted(plat.items()))))
+    A("<p>One participant's records were obtained from a different source than the remainder, "
+      "having been added during this investigation rather than forming part of the original "
+      "cohort. That participant is the subject of \u00a74.5, so the asymmetry is noted here "
+      "explicitly.</p>")
 
-    # ---------------- Methods ----------------
     A("<h2>3. Methods</h2>")
 
     A("<h3>3.1 Insulin model</h3>")
@@ -438,11 +460,12 @@ def main():
           f'failure mode rather than passing vacuously.</div>')
 
     A("<h3>4.2 Configured versus observed</h3>")
-    A("<table><tr><th>Participant</th><th>Configured peak</th><th>Duration</th>"
+    A("<table><tr><th>Participant</th><th>System</th><th>Configured peak</th><th>Duration</th>"
       "<th>Relative residual</th><th>First half / second half</th><th>Observed peak</th>"
       "<th>Difference</th></tr>")
     for r in cohort:
-        A(f"<tr><td>{r['user']}</td><td>{r['cfg']:.1f}</td><td>{r['dia']}</td>"
+        A(f"<tr><td>{r['user']}</td><td>{plat.get(r['user'], ('?',''))[0]}</td>"
+          f"<td>{r['cfg']:.1f}</td><td>{r['dia']}</td>"
           f"<td>{r['fit']:.3f}{'*' if r['flag'] else ''}</td><td>{r['h1']} / {r['h2']}</td>"
           f"<td>{r['obs']}</td><td>{r['gap']}</td></tr>")
     A("</table>")
@@ -478,7 +501,33 @@ def main():
       f"tail carries no usable signal at these dose sizes. Stratifying doses by size does not "
       f"recover it, since the tail is small relative to the residual in both strata.</p>")
 
-    A("<h3>4.4 Dose-size control and integrity</h3>")
+    A("<h3>4.4 Differences between the two delivery systems</h3>")
+    A(f"<p>The {n_aaps} AndroidAPS and {n_trio} Trio participants are not interchangeable for these "
+      f"methods, in three respects that affect what can be checked rather than what is found.</p>")
+    A("<ul>")
+    A("<li><b>The bolus IOB series is uploaded by one and derived for the other.</b> Trio reports "
+      "<code>bolusiob</code> directly; for AndroidAPS it must be reconstructed as total minus basal "
+      "IOB. The derivation is therefore only verifiable where it is not needed — in the Trio "
+      "participants, where derived and uploaded values agreed to a mean absolute difference of "
+      "0.00025 U. That agreement is the entire evidence that the AndroidAPS derivation is sound, "
+      "and it is indirect.</li>")
+    A("<li><b>The IOB step falls in a different bin.</b> In Trio records the logged IOB rises in "
+      "the same five-minute bin as the bolus timestamp; in AndroidAPS records it rises in the "
+      "following one, because the controller computes IOB at the start of its cycle and counts a "
+      "bolus delivered afterwards on the next pass. Across the cohort the observed offsets were "
+      "confined to zero or one bin with none outside, but a fixed assumption of either would have "
+      "been wrong for one platform. The estimator detects the offset rather than assuming it.</li>")
+    A("<li><b>Exercise is uncontrolled for Trio participants.</b> The AndroidAPS uploader carries "
+      "step counts, which are used to exclude active periods; the Trio uploader does not. Both "
+      "Trio participants are therefore analysed without any activity control, and one of them is "
+      "the subject of §4.5.</li>")
+    A("</ul>")
+    A("<p>No systematic difference in recovered peak between the two systems is claimed. With "
+      f"{n_trio} Trio participants against {n_aaps} on AndroidAPS, and configured curves differing "
+      "between individuals for reasons unrelated to platform, the cohort cannot support such a "
+      "comparison and none is attempted.</p>")
+
+    A("<h3>4.4.1 Dose-size control and integrity</h3>")
     A(f"<p>Fitting separate kernels to small and large doses provides a negative control, since the "
       f"delivery systems apply one configured curve irrespective of dose size and the true "
       f"difference is therefore zero. The difference was within ±3 minutes in most participants but "
