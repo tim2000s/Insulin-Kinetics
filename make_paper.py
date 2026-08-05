@@ -483,6 +483,21 @@ def main():
       f"explanations are extended or multiwave boluses, partial delivery, and timestamps offset from "
       f"the delivery the controller registered. Their configured curves are reported but should be "
       f"treated as provisional.</p>")
+    import numpy as _np
+    _gaps = _np.array([int(r["gap"]) for r in cohort if r["gap"].lstrip("+-").isdigit()])
+    _neg = int((_gaps < 0).sum())
+    A(f"<p><b>Across the cohort the observed peak is earlier than the configured one in "
+      f"{_neg} of {len(_gaps)} participants</b>, with a median difference of "
+      f"{_np.median(_gaps):+.0f} minutes. Configured curves cluster hard on preset values — ten "
+      f"participants within a minute or two of 55 and five of 75 — whereas observed peaks are "
+      f"spread continuously. Two considerations bear on how much weight this carries. Uncorrected "
+      f"sensor lag biases the observed value LATE, so it works against the direction seen and the "
+      f"true differences are if anything larger. Against that, the self-test of §3.8 showed a "
+      f"downward pull of a few minutes at the longest peaks under realistic noise, which would "
+      f"contribute to a negative difference without being physiological. A systematic finding of "
+      f"this size across {len(_gaps)} people is worth stating; attributing it confidently to "
+      f"insulin rather than to the estimator would need the designed test of §7.</p>")
+
     changed = [r for r in cohort if r["h1"].lstrip("-").isdigit() and r["h2"].lstrip("-").isdigit()
                and abs(int(r["h1"]) - int(r["h2"])) > 10]
     if changed:
