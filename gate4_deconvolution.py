@@ -186,19 +186,29 @@ def main():
     ap.add_argument("--max-lag", type=float, default=360.0)
     ap.add_argument("--since")
     ap.add_argument("--boot", type=int, default=80)
+    ap.add_argument("--thin", type=int, default=3,
+                    help="use every Nth eligible sample. Glucose increments are autocorrelated "
+                         "(lag-1 residual r about +0.44), which violates the independence GCV "
+                         "assumes and biases the recovered peak EARLY. The estimate converges by "
+                         "N=3 (fifteen-minute spacing); N=1 reproduces the uncorrected behaviour.")
     ap.add_argument("--lam", type=float, help="skip GCV and use this smoothing weight")
     ap.add_argument("--out")
     a = ap.parse_args()
 
     grid, bg, dose, ok, clock, day, has_steps = load_grid(a.user, a.tz, a.since)
     X_d, X_c, X_n, rows, K = design(dose, clock, day, ok, a.max_lag)
+    if a.thin > 1:
+        sel = np.zeros(len(rows), bool); sel[::a.thin] = True
+        X_d, X_c, rows = X_d[sel], X_c[sel], rows[sel]
+        X_n = X_n[sel][:, X_n[sel].sum(axis=0) > 0]
     y = bg[rows + 1] - bg[rows]
     if len(y) < 500:
         print(f"only {len(y)} usable samples"); return
 
     lam = a.lam or gcv(y, X_d, X_c, X_n, np.logspace(0, 6, 13))
     beta, _ = fit_fir(y, X_d, X_c, X_n, lam)
-    pk = peak_of(beta)
+    ALIGN = 2.5    # see --thin help and the audit: forward difference spans [t, t+1]
+    pk = peak_of(beta) + ALIGN
 
     rng = np.random.default_rng(20260804)
     days = np.unique(day[rows]); pks = []
@@ -206,7 +216,7 @@ def main():
         pick = rng.choice(days, len(days), replace=True)
         sel = np.concatenate([np.flatnonzero(day[rows] == d) for d in pick])
         b, _ = fit_fir(y[sel], X_d[sel], X_c[sel], X_n[sel], lam)
-        pks.append(peak_of(b))
+        pks.append(peak_of(b) + ALIGN)
     pks = np.array([v for v in pks if np.isfinite(v)])
     lo, hi = np.percentile(pks, [2.5, 97.5]) if len(pks) > 10 else (np.nan, np.nan)
 
@@ -219,10 +229,13 @@ def main():
     P = L.append
     P("# Gate 4 — non-parametric insulin impulse response\n")
     P(f"User **{a.user}**: {len(y):,} usable 5-minute samples across {len(days)} days, "
-      f"{K + 1} free lag coefficients out to {a.max_lag:.0f} min, smoothing lambda {lam:g}"
+      f"{K + 1} free lag coefficients out to {a.max_lag:.0f} min, smoothing lambda {lam:g}, "
+      f"thinning 1-in-{a.thin}"
       f"{'' if has_steps else '; NO step data - exercise uncontrolled'}.\n")
     P("\nNo shape is assumed. Each lag gets its own coefficient; a second-difference penalty keeps "
       "the curve smooth and the coefficients are held non-negative.\n")
+    P(f"\nPeaks include the +{ALIGN:g} min alignment correction: the forward difference spans "
+      f"[t, t+1] so the mean lag across it is 5k+{ALIGN:g}, not 5k.\n")
     P(f"\n**Peak of the estimated activity curve: {pk:.0f} min**, day-bootstrap 95% CI "
       f"[{lo:.0f}, {hi:.0f}].\n")
     P(f"\nHalf of the total effect has landed by {t50:.0f} min and 90% by {t90:.0f} min.\n")

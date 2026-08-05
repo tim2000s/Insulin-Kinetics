@@ -522,20 +522,19 @@ def main():
       "the configured curve their system is using:</p>")
     A("<table><tr><th>Configured peak</th><th>n</th><th>Median observed peak</th>"
       "<th>Median difference</th></tr>")
-    A("<tr><td>~35 min</td><td>1</td><td>30</td><td>−5</td></tr>")
-    A("<tr><td>~45 min</td><td>4</td><td>28</td><td>−18</td></tr>")
-    A("<tr><td>~55 min</td><td>6</td><td>38</td><td>−18</td></tr>")
-    A("<tr><td>~75 min</td><td>6</td><td>38</td><td>−37</td></tr>")
+    A("<tr><td>~35 min</td><td>1</td><td>32</td><td>−3</td></tr>")
+    A("<tr><td>~45 min</td><td>8</td><td>42</td><td>−6</td></tr>")
+    A("<tr><td>~55 min</td><td>7</td><td>38</td><td>−18</td></tr>")
+    A("<tr><td>~75 min</td><td>6</td><td>42</td><td>−33</td></tr>")
     A("</table>")
     A('<div class="caption"><b>Table 5.</b> Observed peak grouped by configured peak, one delivery '
       'system, 17 participants.</div>')
-    A("<p>The observed peak sits between 28 and 38 minutes in every group, while the configured "
+    A("<p>The observed peak sits between 32 and 42 minutes in every group, while the configured "
       "value ranges from 35 to 75. It does not track the setting: the correlation between "
-      "configured and observed across these participants is <b>+0.34</b>, and the widening "
+      "configured and observed across these participants is <b>+0.29</b>, and the widening "
       "difference in the final column arises because the observed value stays flat while the "
       "configured value rises. Configured peaks are sharply discrete — six participants within a "
-      "minute of 55 and six near 75 — whereas observed peaks are spread continuously between 25 "
-      "and 75.</p>")
+      "minute of 55 and six near 75 — whereas observed peaks are spread continuously.</p>")
     A("<p>Whether this is the estimator or the insulin was tested per participant rather than "
       "assumed. Injecting a known 75-minute curve into four of these participants' own dose series "
       "and sampling, the estimator returned 75, 70, 65 and 80 — it recovers a long peak from their "
@@ -689,11 +688,12 @@ def main():
       "<td>euglycaemic clamp, glucose held constant, 7–30 U</td></tr>")
     A("<tr><td>Peak assumed by the delivery system</td><td>45–75 min</td>"
       "<td>a convention; not a value the labels supply (§3.1.1)</td></tr>")
-    A("<tr><td>Observed response, this work</td><td>median 40 min</td>"
+    A("<tr><td>Observed response, this work</td><td>median 42 min</td>"
       "<td>free-living, glucose falling, 0.1–1 U automatic boluses</td></tr>")
     A("</table>")
     A('<div class="caption"><b>Table 6.</b> Each step is roughly half the one above it. The '
-      'correlation between the lower two across 31 participants is +0.11.</div>')
+      'correlation between the lower two across 31 participants is +0.11. Observed values carry '
+      'the corrections of section 5b.</div>')
     A("<p>Four candidate explanations were tested rather than argued.</p>")
     A("<p><b>Estimator bias — excluded.</b> Injecting a known 75-minute curve into individual "
       "participants' own dose series and sampling returns 65 to 80 (§4.3.1). The estimator "
@@ -758,8 +758,15 @@ def main():
       "moves the estimate later and it converges by one-in-three (fifteen-minute spacing): +5 min "
       "for two participants examined, +15 for a third, 0 for others. Taking the converged value is "
       "the correct estimate; the five-minute figure is <b>0 to 15 minutes early</b>.</p>")
-    A("<p>Together these place a typical corrected peak near <b>45 minutes</b> rather than the 40 "
-      "reported. Everything else tested showed either no material effect or a bias in the same "
+    A("<p><b>Both corrections are applied to every observed value reported in this paper.</b> "
+      "The estimator uses one-in-three thinning by default and adds the 2.5-minute alignment term "
+      "at reporting. Applying them across the cohort moved the median observed peak from 40 to 42 "
+      "minutes and — because the shift is larger for participants whose estimates were most "
+      "affected — halved the median difference against configured, from −20 to −8 minutes. "
+      "Fourteen of thirty-one participants now agree with their configured curve within ten "
+      "minutes, where far fewer did before. The correlation between configured and observed is "
+      "unchanged at +0.11.</p>")
+    A("<p>Everything else tested showed either no material effect or a bias in the same "
       "direction:</p>")
     A("<ul>")
     A("<li><b>Non-negativity constraint</b> — binding at short lags (three of the first six "
@@ -777,9 +784,11 @@ def main():
       "successor samples fail it. Requiring both moves the peak by 0 to 5 minutes.</li>")
     A("</ul>")
     A('<div class="note">The audit therefore does not overturn the result but does revise it: '
-      'reported peaks are systematically a few minutes early, and a corrected typical value is '
-      'nearer 45 than 40 minutes. That remains well below the 60-180 minutes the labels state, and '
-      'no mechanism was found that biases the estimate early beyond the two quantified here.</div>')
+      'the corrections are now applied rather than pending, and they matter: the median difference '
+      'against configured halves. What survives is that the observed response remains well below '
+      'the 60-180 minutes the labels state, and that the configured value still carries almost no '
+      'information about it. No mechanism was found that biases the estimate early beyond the two '
+      'quantified here.</div>')
 
     A("<h2>6. Limitations</h2>")
     A("<ol>")
