@@ -173,10 +173,29 @@ def gcv(y, X_d, X_c, X_n, lams):
     return bl
 
 
-def peak_of(beta):
+# Lags below this are excluded from the peak search. Two reasons, and the exclusion changes the
+# answer for exactly one participant in the cohort — every other recovered peak is already at or
+# beyond 20 min, so this is a guard rather than a thumb on the scale.
+#   1. No rapid-acting analogue has an onset of action under 10 min by its own product information,
+#      so a peak before 15 min is not a physiologically admissible answer.
+#   2. Reverse causality concentrates here. The controller doses BECAUSE glucose is rising and
+#      glucose increments are autocorrelated, so a dose correlates with the change that immediately
+#      follows it; the non-negativity constraint cannot represent that as a negative coefficient and
+#      it emerges instead as a narrow positive spike in the first bins. In the affected participant
+#      a single-bin spike of 2.45 at lag 5 min outranked a broad, well-supported mode of 2.15 at
+#      65 min, and a naive global argmax reported 5 rather than 65.
+MIN_PEAK_LAG_MIN = 15.0
+
+
+def peak_of(beta, min_lag_min: float = MIN_PEAK_LAG_MIN):
+    """Lag of maximum activity, ignoring the first bins (see MIN_PEAK_LAG_MIN)."""
     if beta.max() <= 0:
         return float("nan")
-    return float(np.argmax(beta) * 5.0)
+    b = np.asarray(beta, dtype=float).copy()
+    b[:int(min_lag_min // 5)] = 0.0
+    if b.max() <= 0:
+        return float("nan")
+    return float(np.argmax(b) * 5.0)
 
 
 def main():

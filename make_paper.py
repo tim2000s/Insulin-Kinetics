@@ -280,6 +280,14 @@ def main():
       "entered in the preceding three hours, sensor glucose lay between 40 and 350 mg/dL, the "
       "sample fell outside any post-rescue window, and — where step data were available — the "
       "rolling hourly step count was below 200.</p>")
+    A("<p>The peak was taken over lags of 15 min and above. No rapid-acting analogue has an onset "
+      "of action below 10 min by its own product information, so an earlier peak is not "
+      "physiologically admissible; and reverse causality concentrates in the first bins, since the "
+      "controller doses in response to rising glucose and the non-negativity constraint cannot "
+      "represent that as a negative coefficient. In one participant a single-bin coefficient of "
+      "2.45 at 5 min outranked a broad, well-supported mode of 2.15 at 65 min. The restriction "
+      "altered the estimate for that participant alone; every other recovered peak lay at or beyond "
+      "20 min.</p>")
     A("<p>Adjacent lags are strongly collinear, so the unpenalised estimate is uninformative. A "
       "second-difference (Tikhonov) penalty was applied [2], with β constrained non-negative:</p>")
     A('<div class="eq">β̂ = arg min<sub>β ≥ 0</sub> ‖<i>y</i> − <i>X</i>β‖² + λ‖<i>D</i>β‖²'
