@@ -117,6 +117,13 @@ def main():
     days = [int(m.group(1)) for u in users
             for m in [re.search(r"across (\d+) days", g4[u])] if m]
     rho = float(np.corrcoef(cfg, obs)[0, 1])
+    clean_fit = fitv[~np.array([r["flag"] for r in cohort])]
+    dos = read(os.path.join(B, "dosing.md"))
+    m_dos = re.search(r"Median \*\*([+\-][\d.]+) U per unit delivered\*\* \(([+\-][\d.]+)%\)\. "
+                      r"(\d+) of (\d+) participants carry more than 0\.15[^;]*; (\d+) carry less", dos)
+    cr = read(os.path.join(B, "counterreg.md"))
+    m_cr = re.search(r"is later in \*\*(\d+) of (\d+)\*\*, median difference \*\*([+\-]\d+) min",
+                     cr)
     figs = all_figures(B)
 
     H = []
@@ -142,8 +149,9 @@ def main():
       f"smoothness penalty, a non-negativity constraint, and a time-of-day drift profile pooled "
       f"across days. Both estimators were validated against simulated data with known parameters, "
       f"and the non-parametric estimator additionally against simulated closed-loop feedback.</p>")
-    A(f"<p><b>Results.</b> Configured profiles were recovered with relative residuals of 0.02 to "
-      f"0.09 in the {len(cohort) - len(flagged)} participants whose dose records reconciled with "
+    A(f"<p><b>Results.</b> Configured profiles were recovered with relative residuals of "
+      f"{clean_fit.min():.2f} to {clean_fit.max():.2f} in the {len(cohort) - len(flagged)} "
+      f"participants whose dose records reconciled with "
       f"their logged insulin-on-board, and recovered peaks clustered on manufacturer preset values. "
       f"Observed peaks had a median of {np.median(obs):.0f} min (range {obs.min():.0f}–"
       f"{obs.max():.0f}) against configured values of {np.median(cfg):.0f} min "
@@ -383,7 +391,7 @@ def main():
 
     A("<h3>3.2 Configured profiles</h3>")
     A(f"<p>Configured peaks were recovered with 95% intervals spanning 1 to 2 min and relative "
-      f"residuals of {np.min(fitv):.3f} to {np.max(fitv[fitv < 0.15]) if (fitv < 0.15).any() else 0:.3f} "
+      f"residuals of {clean_fit.min():.3f} to {clean_fit.max():.3f} "
       f"in the {len(cohort) - len(flagged)} participants whose records reconciled. Estimates were "
       f"stable across disjoint halves of the observation period in all but one participant. "
       f"Recovered values clustered on manufacturer presets (Figure 1).</p>")
@@ -470,8 +478,9 @@ def main():
       "moved the peak by 0 to 5 min. Admitting net basal insulin as a second kernel moved the bolus "
       "peak by 0 to 5 min; the fitted basal kernel peaked at lag zero and carried 38–43% of total "
       "kernel mass, consistent with the controller's reaction rather than insulin action. Splitting "
-      "records by glucose level, the peak was later in the high-glucose stratum in 11 of 16 "
-      "participants (median +8 min).</p>")
+      f"records by glucose level, the peak was later in the high-glucose stratum in "
+      f"{m_cr.group(1) if m_cr else 11} of {m_cr.group(2) if m_cr else 16} "
+      f"participants (median {m_cr.group(3) if m_cr else '+8'} min).</p>")
 
     # ---------------- Discussion ----------------
     A("<h2>4. Discussion</h2>")
@@ -499,9 +508,9 @@ def main():
       f"label value), and the free-living response measured here (median {np.median(obs):.0f} min, "
       f"at 0.1–1 U with glucose free to fall). Four explanations for the discrepancy were examined. "
       f"Estimator bias was excluded by per-participant injection of a known 75-minute curve, which "
-      f"returned 65 to 80 min. Omitted basal insulin was excluded. Counter-regulation, which a "
+      f"returned 65 to 85 min. Omitted basal insulin was excluded. Counter-regulation, which a "
       f"clamp suppresses by design and free-living conditions do not, contributed a median of "
-      f"+8 min — directionally as predicted but an order of magnitude too small. Dose dependence "
+      f"{m_cr.group(3) if m_cr else '+8'} min — directionally as predicted but an order of magnitude too small. Dose dependence "
       f"was excluded within the range these systems dose in, though the comparison with clamp doses "
       f"spans two further orders of magnitude that these data cannot address.</p>")
     A("<p>Duration of action was not identifiable in the majority of participants, and its "
@@ -510,9 +519,10 @@ def main():
       "stability check, risks reporting false precision.</p>")
     A("<p>The practical consequence of a configured profile slower than the observed response is "
       "that the controller carries insulin-on-board it believes still to act. Since insulin-on-board "
-      "restrains dosing, this is a conservative error: at 60 min after a dose the median "
-      "discrepancy was 0.056 U per unit delivered, though 14 of 31 participants exceeded 0.15 U per "
-      "unit. Four participants showed the opposite sign, in which the restraint is released earlier "
+      f"restrains dosing, this is a conservative error: at 60 min after a dose the median "
+      f"discrepancy was {m_dos.group(1) if m_dos else '+0.058'} U per unit delivered, though "
+      f"{m_dos.group(3) if m_dos else '13'} of {m_dos.group(4) if m_dos else len(cohort)} participants exceeded 0.15 U per "
+      f"unit. {int(m_dos.group(5)) if m_dos else 5} participants showed the opposite sign, in which the restraint is released earlier "
       "than the observed response supports. These figures quantify a disagreement within the "
       "controller's own accounting and do not measure an error in insulin action.</p>")
 

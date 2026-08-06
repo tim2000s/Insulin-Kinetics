@@ -40,7 +40,7 @@ import psycopg2
 from scipy.optimize import lsq_linear
 
 from gate1_recover_known_curve import DSN, activity
-from gate4_deconvolution import STEP_S, gcv, load_grid
+from gate4_deconvolution import STEP_S, gcv, load_grid, peak_of
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -96,7 +96,15 @@ def fit_deciles(y, Xq, X_c, X_n, lam, lam_q):
 
 
 def peaks_of(ks):
-    return [float(np.argmax(k) * 5.0) if k.max() > 0 else np.nan for k in ks]
+    """Peak lag per decile, using the shared guard against short-lag spikes.
+
+    This function previously took a naive global argmax, which is the defect that reported an
+    8-minute peak for one participant elsewhere: reverse causality concentrates in the first bins
+    and the non-negativity constraint expresses it as a narrow positive spike that can outrank the
+    real mode. Decile kernels are noisier than the pooled one, so they are more exposed to it, not
+    less.
+    """
+    return [peak_of(k) if k.max() > 0 else np.nan for k in ks]
 
 
 def run_user(user, tz, nq=10, max_lag=240.0, control=True):

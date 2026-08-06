@@ -127,7 +127,10 @@ def main():
     shift = peak_of(b_both) - peak_of(b_only)
     P(f"\nShift from admitting basal: **{shift:+.0f} min**.\n")
     if np.any(c_both != 0):
-        P(f"\nThe basal kernel peaks at {peak_of(np.abs(c_both)):.0f} min and carries "
+        # min_lag_min=0 deliberately: a basal kernel peaking at lag zero IS the finding here
+        # (it identifies the controller's reaction rather than insulin action), and the usual
+        # guard would mask it by reporting 15.
+        P(f"\nThe basal kernel peaks at {peak_of(np.abs(c_both), min_lag_min=0):.0f} min and carries "
           f"{100 * np.abs(c_both).sum() / (np.abs(c_both).sum() + b_both.sum() + 1e-9):.0f}% of "
           f"the total absolute kernel mass.\n")
     P("\n" + ("Admitting basal moves the bolus peak by less than five minutes, so omitting it does "
