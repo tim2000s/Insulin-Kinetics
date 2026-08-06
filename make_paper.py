@@ -384,8 +384,13 @@ def main():
       f"counted. Candidate explanations include extended or multiwave boluses, partial delivery, "
       f"and timestamps offset from the delivery registered by the controller. Their configured "
       f"profiles are reported but should be regarded as provisional.</p>")
-    changed = [r for r in cohort if r["h1"].lstrip("-").isdigit() and r["h2"].lstrip("-").isdigit()
-               and abs(int(r["h1"]) - int(r["h2"])) > 10]
+    # Largest half-to-half change, preferring participants whose records reconcile: taking the
+    # first match reported a 12-minute difference in a residual-flagged participant as the finding,
+    # when a 31-minute change in a clean record was present.
+    changed = sorted(
+        [r for r in cohort if r["h1"].lstrip("-").isdigit() and r["h2"].lstrip("-").isdigit()
+         and abs(int(r["h1"]) - int(r["h2"])) > 10],
+        key=lambda r: (r["flag"], -abs(int(r["h1"]) - int(r["h2"]))))
     if changed:
         c0 = changed[0]
         A(f"<p>Refitting on disjoint halves identified a change of configured profile in "
@@ -466,11 +471,11 @@ def main():
       "is an identity rather than a model, the estimate is an audit of what a system is computing "
       "with, independent of what is reported elsewhere, and it identified both an undocumented "
       "change of profile during the observation period and, in one participant, a configured "
-      "profile that did not correspond to the insulin they reported using. That participant's "
-      "recovered peak of 75 min was the manufacturer default; a 45-minute profile fitted their "
-      "logged insulin-on-board 4.4 times worse and the 75-minute value was stable at 73.8 to 77.3 "
-      "min across eight disjoint fifteen-day windows. These records establish what the system was "
-      "computing with; they do not establish why, and no claim as to cause is made.</p>")
+      "profile that did not correspond to the insulin they understood to be in use. In that case "
+      "the recovered profile matched a default preset rather than the value associated with the "
+      "insulin concerned; the alternative fitted the logged insulin-on-board several times worse, "
+      "and the recovered value was stable across disjoint subperiods. Such records establish what "
+      "a system is computing with; they do not establish why, and no claim as to cause is made.</p>")
     A("<p>The observed profile is recoverable with useful precision, but the estimate depends more "
       "on the identification strategy than on the choice of model family. The parametric "
       "within-window formulation was unbiased on its own generating model to within 0.3 min and "
