@@ -32,8 +32,14 @@ def _embed(fig):
 from cohort_table import parse as parse_cohort, with_peak   # noqa: E402
 
 
-def fig_kernels(build, users=("tim", "U013", "IK5")):
-    """Estimated impulse responses for representative participants."""
+def fig_kernels(build, users=("tim", "U013", "IK5"), key=None):
+    """Estimated impulse responses for representative participants.
+
+    `key` maps working identifiers to published labels. The per-participant files on disk are
+    always named by the working identifier, so the mapping has to be applied to the LEGEND rather
+    than to the lookup — otherwise an anonymised run silently prints the working name on the plot.
+    """
+    key = key or {}
     fig, ax = plt.subplots(figsize=(3.4, 2.2))
     plotted = 0
     for u in users:
@@ -46,7 +52,7 @@ def fig_kernels(build, users=("tim", "U013", "IK5")):
             continue
         lag = np.array([float(a) for a, _ in vals])
         amp = np.array([float(b) for _, b in vals])
-        ax.plot(lag, amp, lw=1.0, label=f"participant {u}")
+        ax.plot(lag, amp, lw=1.0, label=f"participant {key.get(u, u)}")
         plotted += 1
     if not plotted:
         return ""
@@ -96,9 +102,9 @@ def fig_distributions(build):
     return _embed(fig)
 
 
-def all_figures(build):
+def all_figures(build, key=None):
     return {
-        "kernels": fig_kernels(build),
+        "kernels": fig_kernels(build, key=key),
         "scatter": fig_configured_vs_observed(build),
         "dists": fig_distributions(build),
     }

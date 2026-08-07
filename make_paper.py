@@ -82,6 +82,7 @@ def main():
         print(f"no cohort table in {B}; run make_report.py first"); return
     users = [r["user"] for r in cohort]
     plat = {u: v for u, v in detect_platform().items() if u in users}
+    key = {}
     if a.anonymise:
         key = {u: f"P{i + 1}" for i, u in enumerate(users)}
         for r in cohort:
@@ -127,7 +128,7 @@ def main():
     cr = read(os.path.join(B, "counterreg.md"))
     m_cr = re.search(r"is later in \*\*(\d+) of (\d+)\*\*, median difference \*\*([+\-]\d+) min",
                      cr)
-    figs = all_figures(B)
+    figs = all_figures(B, key=key)
 
     H = []
     A = H.append

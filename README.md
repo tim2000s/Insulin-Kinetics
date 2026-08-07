@@ -90,3 +90,19 @@ Two constraints are worth knowing before you start, both detailed in METHOD.md:
 ## Licence
 
 AGPL-3.0-or-later, matching the AndroidAPS work this came out of.
+
+## The paper
+
+`paper/insulin-kinetics-paper.pdf` is the current draft. It is generated, not written by hand:
+every numerical value in it is parsed from the analysis outputs in `build/`, so the manuscript
+cannot drift from the results it reports.
+
+    python3 make_report.py --config cohort.json     # runs the suite, writes build/
+    python3 make_paper.py --build build --anonymise --out paper/insulin-kinetics-paper.pdf
+
+The published draft always carries `--anonymise`, which relabels participants P1..Pn in the text,
+the tables and the figure legends. A build without that flag keeps the working identifiers and is
+for local use only; `.gitignore` allows PDFs under `paper/` and nothing else, so the two cannot be
+confused.
+
+It is a draft and will be replaced wholesale rather than amended.

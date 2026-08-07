@@ -18,6 +18,10 @@ GATE2_SPEC_CURVE.md
 .cohort_*
 build/
 *.pdf
+# ...except the published draft, which is generated with --anonymise into paper/.
+# The working-identifier build goes to the repository root and stays ignored, so the
+# two can never be confused: only a file under paper/ is publishable.
+!paper/*.pdf
 *.html
 
 # per-user scratch from the external-insulin sensitivity refits
