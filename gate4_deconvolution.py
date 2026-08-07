@@ -249,6 +249,12 @@ PEAK_PROM_MIN = 0.40
 # neighbours and moved 25 min when the smoothing was changed.
 PEAK_LAMBDA_SPREAD_MAX = 15.0
 
+# The target is a forward difference over [t, t+1] regressed on the dose at lag 5k, so the mean lag
+# across that interval is 5k + 2.5. Applied at reporting rather than inside the estimator, because
+# the simulated controls are generated on the same discrete grid and carry no corresponding offset.
+# A module constant so every script that reports a peak uses the same value.
+ALIGN_DEFAULT = 2.5
+
 
 def peak_shape(beta, min_lag_min: float = MIN_PEAK_LAG_MIN, window_min: float = 30.0):
     """Concentration and prominence of the kernel's mode. See PEAK_CONC_MIN."""
@@ -297,7 +303,7 @@ def main():
 
     lam = a.lam or gcv(y, X_d, X_c, X_n, np.logspace(0, 6, 13))
     beta, _ = fit_fir(y, X_d, X_c, X_n, lam)
-    ALIGN = 2.5    # see --thin help and the audit: forward difference spans [t, t+1]
+    ALIGN = ALIGN_DEFAULT
     pk = peak_of(beta) + ALIGN
 
     rng = np.random.default_rng(20260804)
