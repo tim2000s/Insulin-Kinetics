@@ -29,19 +29,7 @@ def _embed(fig):
             + base64.b64encode(buf.getvalue()).decode() + "'/>")
 
 
-def parse_cohort(build):
-    rows = []
-    path = os.path.join(build, "cohort.md")
-    if not os.path.exists(path):
-        return rows
-    for ln in open(path):
-        m = re.match(r"\|\s*(\w+)\s*\|\s*([\d.]+)\s*\|\s*([\w/]+)\s*\|\s*([\d.]+)(!?)\s*\|"
-                     r"\s*([\d-]+)\s*\|\s*([\d-]+)\s*\|\s*([\d-]+)\s*\|", ln)
-        if m:
-            rows.append(dict(user=m.group(1), cfg=float(m.group(2)), dia=m.group(3),
-                             fit=float(m.group(4)), flag=m.group(5) == "!",
-                             obs=int(m.group(8))))
-    return rows
+from cohort_table import parse as parse_cohort, with_peak   # noqa: E402
 
 
 def fig_kernels(build, users=("tim", "U013", "IK5")):
@@ -70,7 +58,7 @@ def fig_kernels(build, users=("tim", "U013", "IK5")):
 
 
 def fig_configured_vs_observed(build):
-    rows = parse_cohort(build)
+    rows = with_peak(parse_cohort(build))     # kernels with no mode carry no peak to plot
     if not rows:
         return ""
     cfg = np.array([r["cfg"] for r in rows])
@@ -92,7 +80,7 @@ def fig_configured_vs_observed(build):
 
 
 def fig_distributions(build):
-    rows = parse_cohort(build)
+    rows = with_peak(parse_cohort(build))
     if not rows:
         return ""
     cfg = np.array([r["cfg"] for r in rows])

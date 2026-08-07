@@ -56,7 +56,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STEP_S = 300.0
 
 
-def load_grid(user: str, tz: str, since: str | None = None):
+def load_grid(user: str, tz: str, since: str | None = None,
+              include_external: bool = False):
     """Regular 5-minute grid of dBG, dose, eligibility, clock bin and day index."""
     conn = psycopg2.connect(DSN)
     dec = pd.read_sql("""
@@ -65,7 +66,7 @@ def load_grid(user: str, tz: str, since: str | None = None):
         FROM boost_decisions WHERE user_id = %s AND cgm_mgdl > 1
         ORDER BY floor(ts_epoch/300.0), ts_epoch DESC""", conn, params=(user,))
     tre = pd.read_sql("""
-        SELECT ts_utc, insulin, carbs FROM boost_treatments
+        SELECT ts_utc, insulin, carbs, event_type FROM boost_treatments
         WHERE user_id = %s ORDER BY ts_utc""", conn, params=(user,))
     conn.close()
     tre["ts"] = pd.to_datetime(tre.ts_utc, utc=True)
@@ -88,11 +89,34 @@ def load_grid(user: str, tz: str, since: str | None = None):
 
     dose = np.zeros(n)
     bol = tre[tre.insulin.fillna(0) > 0]
+    # "External Insulin" is insulin the user logged as delivered OUTSIDE the pump. Its type is not
+    # recorded, and the large records — up to 35 U, repeated at roughly twelve-hour spacing — are
+    # not consistent with a rapid-acting bolus. Representing a long-acting injection with a
+    # rapid-acting kernel would drag the estimate late, and because leverage in a linear model
+    # scales with the square of the regressor these few records dominate: 38% of dosing leverage in
+    # one participant, 24% in another. They are excluded by default and the switch exists so the
+    # sensitivity can be reported rather than assumed.
+    if not include_external and "event_type" in bol.columns:
+        n_ext = int(bol.event_type.eq("External Insulin").sum())
+        bol = bol[~bol.event_type.eq("External Insulin")]
+    else:
+        n_ext = 0
+    n_pre = 0.0
     if len(bol):
-        bi = np.clip(((bol.ts.values.astype("datetime64[s]").astype(float) - t0) / STEP_S)
-                     .round().astype(int), 0, n - 1)
-        np.add.at(dose, bi, bol.insulin.values.astype(float))
-    carb_t = tre[tre.carbs.fillna(0) > 0].ts.values.astype("datetime64[s]").astype(float)
+        raw = ((bol.ts.values.astype("datetime64[s]").astype(float) - t0) / STEP_S).round()
+        # DROP doses outside the glucose grid; do NOT clip them into the end bins. The treatment
+        # stream reaches further back than the decision stream for most participants, and clipping
+        # deposited every one of those historical boluses into bin 0 — up to 10,456 U in a single
+        # five-minute bin against a median bolus of 0.3 U. Because leverage scales with the square
+        # of the regressor, that one entry outweighed the entire rest of the design at the longest
+        # lag. No eligible row needs them: rows are restricted to index >= K, so every row's lag
+        # window already lies wholly inside the grid.
+        inside = (raw >= 0) & (raw <= n - 1)
+        n_pre = float(bol.insulin.values[~inside].sum())
+        bi = raw[inside].astype(int)
+        np.add.at(dose, bi, bol.insulin.values.astype(float)[inside])
+    ct_raw = tre[tre.carbs.fillna(0) > 0].ts.values.astype("datetime64[s]").astype(float)
+    carb_t = ct_raw[(ct_raw >= grid[0] - 3 * 3600) & (ct_raw <= grid[-1])]
 
     ts_local = pd.to_datetime(grid, unit="s", utc=True).tz_convert(tz)
     clock = (ts_local.hour * 2 + ts_local.minute // 30).values      # 48 half-hour bins
@@ -113,7 +137,7 @@ def load_grid(user: str, tz: str, since: str | None = None):
         hi = int(np.clip((ct - t0) / STEP_S + 36, 0, n - 1))
         if hi >= lo:
             ok[lo:hi + 1] = False
-    return grid, bg, dose, ok, clock, day, has_steps
+    return grid, bg, dose, ok, clock, day, has_steps, n_ext, n_pre
 
 
 def design(dose, clock, day, ok, max_lag_min):
@@ -198,6 +222,47 @@ def peak_of(beta, min_lag_min: float = MIN_PEAK_LAG_MIN):
     return float(np.argmax(b) * 5.0)
 
 
+# An argmax exists for any curve, including a flat one. Reporting it as "the peak" implies a mode
+# the data may not contain, so the peak is only issued when the kernel is actually peaked. Two
+# scale-free descriptors, both computed on the same lag range the peak search uses:
+#
+#   concentration  fraction of kernel mass within +/-30 min of the argmax
+#   prominence     (max - median of the positive coefficients) / max
+#
+# Thresholds are set from the model this literature already uses rather than chosen to suit the
+# data. The slowest curve anyone configures — peak 75 min, DIA 480 — scores 0.34 and 0.53; a fast
+# one (35/480) scores 0.58 and 0.93. Floors of 0.25 and 0.40 therefore sit below every admissible
+# curve while still rejecting a kernel with no mode. One participant in this cohort fails: a
+# near-flat kernel scoring 0.17 and 0.44 whose argmax (0.354) barely exceeded its value three hours
+# later (0.306), and which would otherwise have been reported as a confident 28 min.
+PEAK_CONC_MIN = 0.25
+PEAK_PROM_MIN = 0.40
+
+# The mode-shape floors above detect a kernel with no peak. They do NOT detect a kernel whose peak
+# is an artefact of under-smoothing: an oscillating estimate can put ample mass near its argmax and
+# still be reporting noise. The direct test is whether the answer survives the smoothing choice,
+# which is a free parameter selected by cross-validation rather than something the data fix. Each
+# fit is therefore repeated at a tenth and ten times the selected lambda, and the peak is issued
+# only if the three agree to within this tolerance. Across this cohort the median spread over that
+# hundred-fold range is 5 min and one participant exceeds the tolerance: a kernel oscillating
+# bin-to-bin on the smallest sample in the cohort, whose argmax sat between two much smaller
+# neighbours and moved 25 min when the smoothing was changed.
+PEAK_LAMBDA_SPREAD_MAX = 15.0
+
+
+def peak_shape(beta, min_lag_min: float = MIN_PEAK_LAG_MIN, window_min: float = 30.0):
+    """Concentration and prominence of the kernel's mode. See PEAK_CONC_MIN."""
+    b = np.asarray(beta, dtype=float).copy()
+    b[:int(min_lag_min // 5)] = 0.0
+    tot = b.sum()
+    if tot <= 0 or b.max() <= 0:
+        return float("nan"), float("nan")
+    lag = np.arange(len(b)) * 5.0
+    near = np.abs(lag - lag[int(np.argmax(b))]) <= window_min
+    pos = b[b > 0]
+    return float(b[near].sum() / tot), float((b.max() - np.median(pos)) / b.max())
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--user", required=True)
@@ -211,10 +276,16 @@ def main():
                          "assumes and biases the recovered peak EARLY. The estimate converges by "
                          "N=3 (fifteen-minute spacing); N=1 reproduces the uncorrected behaviour.")
     ap.add_argument("--lam", type=float, help="skip GCV and use this smoothing weight")
+    ap.add_argument("--include-external", action="store_true",
+                    help="admit 'External Insulin' records into the dose regressor. Off by "
+                         "default: their insulin type is unrecorded and the large ones are not "
+                         "consistent with a rapid-acting bolus, while carrying up to 38%% of a "
+                         "participant's dosing leverage. Use to report the sensitivity.")
     ap.add_argument("--out")
     a = ap.parse_args()
 
-    grid, bg, dose, ok, clock, day, has_steps = load_grid(a.user, a.tz, a.since)
+    grid, bg, dose, ok, clock, day, has_steps, n_ext, n_pre = load_grid(
+        a.user, a.tz, a.since, include_external=a.include_external)
     X_d, X_c, X_n, rows, K = design(dose, clock, day, ok, a.max_lag)
     if a.thin > 1:
         sel = np.zeros(len(rows), bool); sel[::a.thin] = True
@@ -250,13 +321,44 @@ def main():
     P(f"User **{a.user}**: {len(y):,} usable 5-minute samples across {len(days)} days, "
       f"{K + 1} free lag coefficients out to {a.max_lag:.0f} min, smoothing lambda {lam:g}, "
       f"thinning 1-in-{a.thin}"
+      f"{'' if not n_ext else f'; {n_ext} External Insulin records excluded'}"
+      f"{'' if n_pre < 1 else f'; {n_pre:.0f} U delivered outside the glucose grid dropped'}"
       f"{'' if has_steps else '; NO step data - exercise uncontrolled'}.\n")
     P("\nNo shape is assumed. Each lag gets its own coefficient; a second-difference penalty keeps "
       "the curve smooth and the coefficients are held non-negative.\n")
     P(f"\nPeaks include the +{ALIGN:g} min alignment correction: the forward difference spans "
       f"[t, t+1] so the mean lag across it is 5k+{ALIGN:g}, not 5k.\n")
-    P(f"\n**Peak of the estimated activity curve: {pk:.0f} min**, day-bootstrap 95% CI "
-      f"[{lo:.0f}, {hi:.0f}].\n")
+    conc, prom = peak_shape(beta)
+    lam_pks = []
+    for mult in (0.1, 1.0, 10.0):
+        b_l, _ = fit_fir(y, X_d, X_c, X_n, lam * mult)
+        lam_pks.append(peak_of(b_l) + ALIGN)
+    lam_spread = float(np.nanmax(lam_pks) - np.nanmin(lam_pks))
+    stable = lam_spread <= PEAK_LAMBDA_SPREAD_MAX
+    peaked = conc >= PEAK_CONC_MIN and prom >= PEAK_PROM_MIN and stable
+    if peaked:
+        P(f"\n**Peak of the estimated activity curve: {pk:.0f} min**, day-bootstrap 95% CI "
+          f"[{lo:.0f}, {hi:.0f}].\n")
+    elif not stable:
+        P(f"\n**Peak: not identifiable.** The argmax does not survive the smoothing choice. "
+          f"Refitting at a tenth and ten times the selected lambda moves it across "
+          f"{lam_pks[0]:.0f}, {lam_pks[1]:.0f} and {lam_pks[2]:.0f} min, a spread of "
+          f"{lam_spread:.0f} min against a tolerance of {PEAK_LAMBDA_SPREAD_MAX:.0f}. Lambda is "
+          f"chosen by cross-validation, not fixed by the data, so an answer that changes this much "
+          f"across it is a property of the regularisation rather than of the insulin. The value is "
+          f"withheld from the cohort summary.\n")
+    else:
+        P(f"\n**Peak: not identifiable.** The estimated kernel has no mode worth reporting — "
+          f"{100 * conc:.0f}% of its mass lies within half an hour of the argmax (floor "
+          f"{100 * PEAK_CONC_MIN:.0f}%) and its prominence is {prom:.2f} (floor "
+          f"{PEAK_PROM_MIN:.2f}). Its argmax is at {pk:.0f} min, but a curve this flat would "
+          f"place it almost anywhere; that number is withheld from the cohort summary rather "
+          f"than carried forward as a peak.\n")
+    P(f"\nMode shape: concentration {conc:.2f}, prominence {prom:.2f}"
+      f"{'' if (conc >= PEAK_CONC_MIN and prom >= PEAK_PROM_MIN) else ' — BELOW FLOOR, kernel not peaked'}.\n")
+    P(f"\nSmoothing stability: peak {lam_pks[0]:.0f} / {lam_pks[1]:.0f} / {lam_pks[2]:.0f} min at "
+      f"lambda x0.1 / x1 / x10, spread {lam_spread:.0f} min"
+      f"{'' if stable else ' — EXCEEDS TOLERANCE, peak not stable to regularisation'}.\n")
     P(f"\nHalf of the total effect has landed by {t50:.0f} min and 90% by {t90:.0f} min.\n")
     P("\n| lag (min) | activity (relative) |")
     P("|---|---|")

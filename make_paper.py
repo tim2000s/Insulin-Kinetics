@@ -66,16 +66,7 @@ def read(p):
     return open(p).read() if os.path.exists(p) else ""
 
 
-def parse_cohort(B):
-    rows = []
-    for ln in read(os.path.join(B, "cohort.md")).splitlines():
-        m = re.match(r"\|\s*(\w+)\s*\|\s*([\d.]+)\s*\|\s*([\w/]+)\s*\|\s*([\d.]+)(!?)\s*\|"
-                     r"\s*([\d-]+)\s*\|\s*([\d-]+)\s*\|\s*([\d-]+)\s*\|\s*([+\-\d]+)\s*\|", ln)
-        if m:
-            rows.append(dict(user=m.group(1), cfg=float(m.group(2)), dia=m.group(3),
-                             fit=float(m.group(4)), flag=m.group(5) == "!", h1=m.group(6),
-                             h2=m.group(7), obs=int(m.group(8)), gap=int(m.group(9))))
-    return rows
+from cohort_table import parse as parse_cohort, with_peak   # noqa: E402
 
 
 def main():
@@ -106,9 +97,14 @@ def main():
     fb = read(os.path.join(B, "val_feedback.md"))
     fb_excess = re.search(r"over the open-loop reference: \*\*([+\-][\d.]+) min\*\*", fb)
 
-    cfg = np.array([r["cfg"] for r in cohort])
-    obs = np.array([r["obs"] for r in cohort])
-    gap = np.array([r["gap"] for r in cohort])
+    # Every statistic over observed peaks is computed on the participants who HAVE one. A kernel
+    # with no identifiable mode contributes no peak, and entering its argmax would manufacture a
+    # number the data does not support.
+    peaked = with_peak(cohort)
+    noflat = [r["user"] for r in cohort if r["flat"]]
+    cfg = np.array([r["cfg"] for r in peaked])
+    obs = np.array([r["obs"] for r in peaked])
+    gap = np.array([r["gap"] for r in peaked])
     fitv = np.array([r["fit"] for r in cohort])
     flagged = [r["user"] for r in cohort if r["flag"]]
     dia_na = [r["user"] for r in cohort if r["dia"] == "n/a"]
@@ -121,6 +117,13 @@ def main():
     dos = read(os.path.join(B, "dosing.md"))
     m_dos = re.search(r"Median \*\*([+\-][\d.]+) U per unit delivered\*\* \(([+\-][\d.]+)%\)\. "
                       r"(\d+) of (\d+) participants carry more than 0\.15[^;]*; (\d+) carry less", dos)
+    ext = read(os.path.join(B, "val_external.md"))
+    m_ext_ratio = re.search(r"rose by \*\*([\d.]+) U per unit logged\*\*", ext)
+    m_ext_lev = re.search(r"\| (\w+) \| \d+ \| \d+ \| ([\d.]+)% \| \*\*([\d.]+)%\*\*", ext)
+    m_ext_shift = re.search(r"median shift is\s*\n?\s*([+\-][\d.]+) min and (\d+) shift by 10 min or more", ext)
+    m_ext_n = re.search(r"\n(\d+) of (\d+) participants have records typed", ext)
+    dsup = read(os.path.join(B, "val_dosesupport.md"))
+    m_dsup = re.search(r"is a median\s*\n?\s*of (\d+)% of the 90th-percentile dose overall", dsup)
     cr = read(os.path.join(B, "counterreg.md"))
     m_cr = re.search(r"is later in \*\*(\d+) of (\d+)\*\*, median difference \*\*([+\-]\d+) min",
                      cr)
@@ -153,9 +156,12 @@ def main():
       f"{clean_fit.min():.2f} to {clean_fit.max():.2f} in the {len(cohort) - len(flagged)} "
       f"participants whose dose records reconciled with "
       f"their logged insulin-on-board, and recovered peaks clustered on manufacturer preset values. "
-      f"Observed peaks had a median of {np.median(obs):.0f} min (range {obs.min():.0f}–"
-      f"{obs.max():.0f}) against configured values of {np.median(cfg):.0f} min "
-      f"({cfg.min():.0f}–{cfg.max():.0f}); the correlation between the two was {rho:+.2f}. Duration "
+      f"An identifiable peak was obtained in {len(peaked)} of {len(cohort)} participants; in the "
+      f"{'remainder the' if len(noflat) != 1 else 'one exception the'} recovered response had no "
+      f"mode and no peak is reported. Observed peaks had a median of {np.median(obs):.0f} min "
+      f"(range {obs.min():.0f}–{obs.max():.0f}) against configured values of {np.median(cfg):.0f} "
+      f"min ({cfg.min():.0f}–{cfg.max():.0f}); the correlation between the two was {rho:+.2f}. "
+      f"Duration "
       f"of action was not identifiable in {len(dia_na)} of {len(cohort)} participants. No "
       f"dependence of the observed peak on dose size was detected across a twenty-two-fold range "
       f"of dose.</p>")
@@ -210,6 +216,30 @@ def main():
       f"uploaded or must be derived as total minus basal, and whether step counts are present. All "
       f"{len(plat)} classifications were concordant across the three features, giving {n_aaps} "
       f"AndroidAPS and {n_trio} Trio users. No demographic data were available.</p>")
+
+    if m_ext_n:
+        A(f"<p>Insulin the user reports having given outside the pump is uploaded under a distinct "
+          f"event type carrying an amount but no insulin type. Such records are present in "
+          f"{m_ext_n.group(1)} of {m_ext_n.group(2)} participants and are bimodal in size: mostly a "
+          f"few units, consistent with a pen dose of the same analogue, but with a minority of 20 "
+          f"to 35 U at approximately twelve-hourly spacing, which is not a plausible single "
+          f"rapid-acting bolus. Because leverage in a linear model scales with the square of the "
+          f"regressor, these few records exert influence far beyond their share of delivered "
+          f"insulin"
+          + (f" — {m_ext_lev.group(3)}% of dosing leverage from {m_ext_lev.group(2)}% of delivered "
+             f"units in the most affected participant" if m_ext_lev else "") + ".</p>")
+        A(f"<p>The two estimators are affected in opposite directions, and each decision was tested "
+          f"rather than assumed. The controller credits this insulin into its own "
+          f"insulin-on-board essentially in full"
+          + (f" ({m_ext_ratio.group(1)} U of insulin-on-board per unit logged, measured across the "
+             f"events themselves)" if m_ext_ratio else "") + ", so it forms part of the identity "
+          f"the configured-profile estimator rests on and is retained there; removing it from one "
+          f"participant raised that participant's relative residual from 0.18 to 0.60. The "
+          f"observed-profile estimator asks instead how the insulin behaves in glucose, where an "
+          f"unknown and possibly long-acting preparation represented by a rapid-acting kernel "
+          f"would bias the estimate late. These records are therefore excluded from the "
+          f"observed-profile estimator, and the sensitivity to that choice is reported in section "
+          f"3.6.</p>")
 
     A("<h3>2.2 Insulin model</h3>")
     A("<p>Both estimators refer to the exponential model used by oref-derived systems [1]. For "
@@ -353,7 +383,37 @@ def main():
       "than within the estimator, because the simulated controls are generated on the same discrete "
       "grid and carry no corresponding offset.</p>")
 
-    A("<h3>2.7 Statistical analysis</h3>")
+    A("<h3>2.7 Identifiability of the peak</h3>")
+    A("<p>Two conditions had to hold before a peak was reported, in addition to the plausibility "
+      "bounds. The first concerns the shape of the recovered curve and the second its dependence "
+      "on the one free parameter of the estimator.</p>")
+    A("<p>The estimator returns a coefficient vector, and every coefficient vector has a maximum. "
+      "Quoting that maximum as a peak presumes the curve has a mode, which is a property of the "
+      "estimate and not something the method guarantees. Two conditions were therefore required "
+      "before a peak was reported, both computed on the same lag range as the peak search. "
+      "<i>Concentration</i> is the fraction of kernel mass lying within ±30 min of the maximum, and "
+      "<i>prominence</i> is (max − median of the positive coefficients)/max. Thresholds were fixed "
+      "from the model already in use rather than from these data: the slowest profile any of these "
+      "systems permits (peak 75 min, duration 480 min) scores 0.34 and 0.53, and a fast one (35/480) "
+      "scores 0.58 and 0.93, so floors of 0.25 and 0.40 lie below every admissible curve while still "
+      "rejecting one with no mode. Participants failing either condition are reported as having no "
+      "identifiable peak and are excluded from summary statistics over peaks; their argmax is "
+      "recorded in the per-participant output but is not carried forward. Applied to a preceding "
+      "version of this analysis the criterion changes one participant, whose near-flat kernel had "
+      "otherwise been summarised as a confident 28 min.</p>")
+    A("<p>The second condition addresses a failure the first cannot see. An oscillating estimate "
+      "can place ample mass near its argmax and still be reporting noise, and whether it oscillates "
+      "is governed by λ, which cross-validation selects rather than the data fix. Each fit was "
+      "therefore repeated at one tenth and ten times the selected λ, and a peak was reported only "
+      "where the three agreed to within 15 min. Across the cohort the median spread over that "
+      "hundred-fold range was 5 min, and one participant exceeded the tolerance at 25 min: a "
+      "kernel oscillating between adjacent lags on the smallest sample in the series, whose argmax "
+      "lay between two substantially smaller neighbours. That participant's peak is withheld on "
+      "the same basis. This condition also supersedes a weaker sensitivity statement made in an "
+      "earlier version of this work, which reported the λ dependence as at most 5 min because it "
+      "had been evaluated on a participant where it was.</p>")
+
+    A("<h3>2.8 Statistical analysis</h3>")
     A("<p>Intervals were obtained by block bootstrap resampling whole days with replacement and "
       "refitting [4]; days rather than observations were the resampling unit because consecutive "
       "five-minute samples are strongly dependent. Agreement between configured and observed peaks "
@@ -404,13 +464,13 @@ def main():
     # first match reported a 12-minute difference in a residual-flagged participant as the finding,
     # when a 31-minute change in a clean record was present.
     changed = sorted(
-        [r for r in cohort if r["h1"].lstrip("-").isdigit() and r["h2"].lstrip("-").isdigit()
-         and abs(int(r["h1"]) - int(r["h2"])) > 10],
-        key=lambda r: (r["flag"], -abs(int(r["h1"]) - int(r["h2"]))))
+        [r for r in cohort if r["h1"] is not None and r["h2"] is not None
+         and abs(r["h1"] - r["h2"]) > 10],
+        key=lambda r: (r["flag"], -abs(r["h1"] - r["h2"])))
     if changed:
         c0 = changed[0]
         A(f"<p>Refitting on disjoint halves identified a change of configured profile in "
-          f"participant {c0['user']} ({c0['h1']} to {c0['h2']} min) that no treatment record "
+          f"participant {c0['user']} ({c0['h1']:.0f} to {c0['h2']:.0f} min) that no treatment record "
           f"documented. Rolling seven-day windows localised the change to a single week. The "
           f"profile-change records present for this participant were dated one week after the "
           f"kinetics changed.</p>")
@@ -421,6 +481,15 @@ def main():
         A('<div class="cap"><b>Figure 1.</b> Estimated impulse responses for three representative '
           'participants. No functional form is imposed; the curve is the vector of lag '
           'coefficients from equation (5).</div>')
+    if noflat:
+        A(f"<p>A peak was reported only where the estimated kernel possessed an identifiable mode "
+          f"(section 2.7). {'One participant' if len(noflat) == 1 else f'{len(noflat)} participants'} "
+          f"({', '.join(noflat)}) failed that test: the recovered curve was near-flat, with under a "
+          f"quarter of its mass within half an hour of its maximum and a maximum that exceeded the "
+          f"curve three hours later by a few per cent. An argmax exists for any curve and could have "
+          f"been quoted, but it would describe noise rather than a response. "
+          f"{'That participant is' if len(noflat) == 1 else 'Those participants are'} excluded from "
+          f"the peak statistics below, leaving {len(peaked)} of {len(cohort)}.</p>")
     A(f"<p>Observed peaks had a median of {np.median(obs):.0f} min (range {obs.min():.0f} to "
       f"{obs.max():.0f}). Configured values for the same participants had a median of "
       f"{np.median(cfg):.0f} min (range {cfg.min():.0f} to {cfg.max():.0f}). The correlation "
@@ -473,14 +542,34 @@ def main():
       "refit, consistent with the controller dosing in response to rising glucose; removing the "
       "constraint changed the peak by less than 5 min, and suppression of the early kernel biases "
       "the peak later rather than earlier. Excluding days contributing fewer than twenty eligible "
-      "samples changed no estimate. Varying λ by a factor of thirty in either direction moved the "
-      "peak by at most 5 min. Requiring the successor sample also to satisfy the eligibility mask "
+      "samples changed no estimate. Requiring the successor sample also to satisfy the eligibility mask "
       "moved the peak by 0 to 5 min. Admitting net basal insulin as a second kernel moved the bolus "
       "peak by 0 to 5 min; the fitted basal kernel peaked at lag zero and carried 38–43% of total "
       "kernel mass, consistent with the controller's reaction rather than insulin action. Splitting "
       f"records by glucose level, the peak was later in the high-glucose stratum in "
       f"{m_cr.group(1) if m_cr else 11} of {m_cr.group(2) if m_cr else 16} "
       f"participants (median {m_cr.group(3) if m_cr else '+8'} min).</p>")
+    if m_ext_shift:
+        A(f"<p>Admitting insulin logged as delivered outside the pump (section 2.1) shifted the "
+          f"observed peak by a median of {m_ext_shift.group(1)} min across the affected "
+          f"participants, with {m_ext_shift.group(2)} shifting by 10 min or more. The effect is "
+          f"concentrated rather than general: it appears only where those records are too large to "
+          f"be single rapid-acting boluses, and is absent where they are of ordinary bolus size. "
+          f"The largest, in the participant whose external records reach 35 U at twelve-hourly "
+          f"spacing, moves the peak from 38 to 78 min and markedly reduces the prominence of the "
+          f"recovered mode — what a slower preparation represented by a rapid-acting kernel would "
+          f"do. The direction is not uniform: one further participant moves 10 min the other way, "
+          f"which is within the range this estimator moves under other specification choices of "
+          f"similar size.</p>")
+    A("<p>Two defects in the analysis code were identified by an independent verification pass and "
+      "corrected before the estimates reported here were produced. Doses timestamped outside the "
+      "glucose grid had been clipped into its first bin rather than dropped, accumulating up to "
+      "10,456 U in a single five-minute interval in one participant; because no eligible target row "
+      "reaches that bin, correcting it changed no estimate, and it is reported because a latent "
+      "defect of that magnitude would not have stayed harmless under a different eligibility rule. "
+      "Separately, bootstrap replicates that failed to converge had been discarded silently, so any "
+      "interval computed from them would have described survivors rather than the bootstrap "
+      "distribution; the count is now reported alongside the interval.</p>")
 
     # ---------------- Discussion ----------------
     A("<h2>4. Discussion</h2>")
@@ -527,6 +616,18 @@ def main():
       "controller's own accounting and do not measure an error in insulin action.</p>")
 
     A("<h2>5. Limitations</h2>")
+    if m_dsup:
+        A(f"<p>The eligibility rule has a consequence for what the peak estimate can speak to. "
+          f"Target samples are excluded for three hours following any carbohydrate entry, so a dose "
+          f"given with announced carbohydrate cannot contribute to any lag below 180 min. Every lag "
+          f"in the region where the peak lies is therefore identified by insulin delivered without "
+          f"announced carbohydrate — corrections and automatic microboluses. Across participants "
+          f"the 90th-percentile dose supporting that region is a median of {m_dsup.group(1)}% of "
+          f"the 90th-percentile dose overall. This does not bias the peak in time, since a "
+          f"correction should follow the same kinetics as a meal bolus, but it does mean the "
+          f"dose-independence result covers the correction range rather than the full delivered "
+          f"range, and that the doses identifying the peak are precisely those given because "
+          f"glucose was high or rising.</p>")
     A("<ol>")
     A("<li>Sensor lag, comprising interstitial delay of approximately 5 to 7 min [6, 7] together "
       "with filter delay, is not corrected. It biases observed values later and therefore cannot "

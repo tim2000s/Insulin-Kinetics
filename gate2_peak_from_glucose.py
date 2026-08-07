@@ -226,6 +226,9 @@ def main():
             pk, _ = fit_peak([w], a.dia, linear_drift=a.linear_drift)
             if 12 < pk < 148:                                # drop windows pinned at a bound
                 per.append(pk); per_t.append(w[0][0])
+        # except-ok: WITHDRAWN ANALYSIS, retained only so the withdrawal can be reproduced. Gate 2
+        # was found under-identified (insulin regressor collinear with dawn drift) and no result
+        # from this file is reported. Per-window fits that fail to converge are dropped by design.
         except Exception:                                    # noqa: BLE001
             pass
     per, per_t = np.array(per), np.array(per_t)

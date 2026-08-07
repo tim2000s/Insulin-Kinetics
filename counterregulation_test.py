@@ -41,7 +41,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def peak_for(user, tz, bg_lo, bg_hi, max_lag=360.0):
-    grid, bg, dose, ok, clock, day, _ = load_grid(user, tz)
+    grid, bg, dose, ok, clock, day, *_ = load_grid(user, tz)
     sel = ok & np.isfinite(bg) & (bg >= bg_lo) & (bg < bg_hi)
     if sel.sum() < 1500:
         return None, int(sel.sum())

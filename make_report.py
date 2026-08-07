@@ -107,6 +107,10 @@ def main():
          "gate4_selftest.py", ["--user", ref_user, "--tz", ref_tz], "val_g4selftest.md"),
         ("validation", "Feedback simulation (does controller reaction bias the peak?)",
          "feedback_simulation.py", ["--days", "150", "--reps", "3"], "val_feedback.md"),
+        ("validation", "Which doses identify the peak region?",
+         "dose_support.py", ["--config", "cohort.json"], "val_dosesupport.md"),
+        ("validation", "Insulin logged as delivered outside the pump",
+         "external_insulin_sensitivity.py", ["--config", "cohort.json"], "val_external.md"),
     ]
     for u, tz in users.items():
         jobs.append(("integrity", f"User {u}", "extract_integrity.py",

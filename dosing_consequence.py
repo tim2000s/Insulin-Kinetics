@@ -37,6 +37,7 @@ import re
 
 import numpy as np
 
+from cohort_table import parse as parse_cohort, with_peak
 from gate1_recover_known_curve import iob_fraction
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -49,12 +50,10 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
 
-    rows = {}
-    for ln in open(os.path.join(a.build, "cohort.md")):
-        m = re.match(r"\|\s*(\w+)\s*\|\s*([\d.]+)\s*\|\s*([\w/]+)\s*\|.*?\|\s*[\d-]+\s*\|"
-                     r"\s*[\d-]+\s*\|\s*([\d-]+)\s*\|", ln)
-        if m:
-            rows[m.group(1)] = (float(m.group(2)), m.group(3), int(m.group(4)))
+    # participants whose kernel has no identifiable mode have no observed peak to compare
+    # against, so they cannot enter a phantom-IOB calculation at all
+    rows = {r["user"]: (r["cfg"], r["dia"], int(r["obs"]))
+            for r in with_peak(parse_cohort(a.build))}
     if not rows:
         print("no cohort table"); return
 

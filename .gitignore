@@ -19,3 +19,6 @@ GATE2_SPEC_CURVE.md
 build/
 *.pdf
 *.html
+
+# per-user scratch from the external-insulin sensitivity refits
+.ext_*

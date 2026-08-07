@@ -76,7 +76,7 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
 
-    grid, bg, dose, ok, clock, day, has_steps = load_grid(a.user, a.tz)
+    grid, bg, dose, ok, clock, day, has_steps, *_ = load_grid(a.user, a.tz)
     X_d, X_c, X_n, rows, K = design(dose, clock, day, ok, a.max_lag)
     if len(rows) < 800:
         print(f"only {len(rows)} usable samples"); return

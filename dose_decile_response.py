@@ -108,7 +108,7 @@ def peaks_of(ks):
 
 
 def run_user(user, tz, nq=10, max_lag=240.0, control=True):
-    grid, bg, dose, ok, clock, day, _ = load_grid(user, tz)
+    grid, bg, dose, ok, clock, day, *_ = load_grid(user, tz)
     t0 = grid[0]
     Dq, med = dose_series(user, grid, t0, nq)
     if Dq is None:

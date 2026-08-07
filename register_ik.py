@@ -101,6 +101,9 @@ if __name__ == "__main__":
         try:
             import zoneinfo, datetime as dt
             tzoff = int(dt.datetime.now(zoneinfo.ZoneInfo(prof["timezone"])).utcoffset().total_seconds() // 3600)
+        # except-ok: a missing or unrecognised profile timezone leaves tzoff None, which the
+        # registry records as unknown. Nothing downstream computes on it, so failing here would
+        # abort a registration over a cosmetic field.
         except Exception:                                        # noqa: BLE001
             pass
         if uid not in existing:

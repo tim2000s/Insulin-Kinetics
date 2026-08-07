@@ -35,6 +35,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def run(script, args, out_path):
     r = subprocess.run([sys.executable, os.path.join(HERE, script)] + args + ["--out", out_path],
                        capture_output=True, text=True, cwd=HERE)
+    # A crashed child used to be indistinguishable from one that simply printed nothing the
+    # parsers matched, so its user appeared in the table as a blank row rather than as a failure.
+    if r.returncode != 0:
+        print(f"  !! {script} exited {r.returncode} for {args}: "
+              f"{r.stderr.strip().splitlines()[-1] if r.stderr.strip() else 'no stderr'}",
+              flush=True)
     return r.stdout, r.returncode
 
 
@@ -55,6 +61,13 @@ def parse_gate1(txt):
 def parse_gate4(txt):
     return dict(
         peak=f(re.search(r"Peak of the estimated activity curve: (\d+) min", txt)),
+        # a kernel with no identifiable peak reports none; distinguish that from a failed run,
+        # and record WHICH criterion rejected it
+        flat="Peak: not identifiable" in txt,
+        why=("no mode" if "has no mode worth reporting" in txt
+             else "unstable" if "does not survive the smoothing choice" in txt else ""),
+        conc=f(re.search(r"concentration (\d+\.\d+)", txt)),
+        prom=f(re.search(r"prominence (\d+\.\d+)", txt)),
         lo=f(re.search(r"95% CI\s*\[(\d+), (\d+)\]", txt), 1),
         hi=f(re.search(r"95% CI\s*\[(\d+), (\d+)\]", txt), 2),
         t50=f(re.search(r"Half of the total effect has landed by (\d+) min", txt)),
@@ -66,10 +79,11 @@ def parse_gate4(txt):
 def job(item, days, boot):
     user, tz = item
     d = {"user": user, "tz": tz}
-    g1, _ = run("gate1_recover_known_curve.py",
-                ["--user", user, "--days", str(days), "--boot", "60"],
-                os.path.join(HERE, f".cohort_g1_{user}.md"))
+    g1, rc1 = run("gate1_recover_known_curve.py",
+                  ["--user", user, "--days", str(days), "--boot", "60"],
+                  os.path.join(HERE, f".cohort_g1_{user}.md"))
     d["gate1"] = parse_gate1(g1)
+    d["rc"] = rc1
     h1, _ = run("gate1_recover_known_curve.py",
                 ["--user", user, "--days", str(days // 2), "--offset-days", str(days // 2),
                  "--boot", "40"], os.path.join(HERE, f".cohort_g1h1_{user}.md"))
@@ -77,10 +91,11 @@ def job(item, days, boot):
                 ["--user", user, "--days", str(days // 2), "--boot", "40"],
                 os.path.join(HERE, f".cohort_g1h2_{user}.md"))
     d["half1"], d["half2"] = parse_gate1(h1)["peak"], parse_gate1(h2)["peak"]
-    g4, _ = run("gate4_deconvolution.py",
-                ["--user", user, "--tz", tz, "--boot", str(boot)],
-                os.path.join(HERE, f".cohort_g4_{user}.md"))
+    g4, rc4 = run("gate4_deconvolution.py",
+                  ["--user", user, "--tz", tz, "--boot", str(boot)],
+                  os.path.join(HERE, f".cohort_g4_{user}.md"))
     d["gate4"] = parse_gate4(g4)
+    d["rc"] = d["rc"] or rc4
     print(f"  [{user}] done", flush=True)
     return d
 
@@ -117,10 +132,12 @@ def main():
     for r in res:
         g1, g4 = r["gate1"], r["gate4"]
         if g1["peak"] is None:
-            P(f"| {r['user']} | no fit | | | | | | |"); continue
+            P(f"| {r['user']} | {'CRASHED' if r.get('rc') else 'no fit'} | | | | | | |")
+            continue
         dia = "n/a" if g1["dia_unidentified"] else f"{g1['dia']:.0f}"
         fit = f"{g1['rel']:.3f}" + ("!" if g1["residual_flag"] else "")
-        obs = f"{g4['peak']:.0f}" if g4["peak"] is not None else "-"
+        obs = (f"{g4['peak']:.0f}" if g4["peak"] is not None
+               else ("n/i" if g4.get("flat") else "-"))
         gap = (f"{g4['peak'] - g1['peak']:+.0f}" if g4["peak"] is not None else "-")
         h1 = f"{r['half1']:.0f}" if r["half1"] else "-"
         h2 = f"{r['half2']:.0f}" if r["half2"] else "-"
@@ -128,6 +145,22 @@ def main():
 
     P("\n**DIA `n/a`** means the leverage test found no alternative duration the data can "
       "distinguish — the recovered number is arbitrary, do not quote it.\n")
+    flat = [r for r in res if r["gate4"].get("flat")]
+    if flat:
+        nom = [r["user"] for r in flat if r["gate4"].get("why") == "no mode"]
+        uns = [r["user"] for r in flat if r["gate4"].get("why") == "unstable"]
+        P("\n**observed `n/i`** means no peak is identifiable. An argmax exists for any coefficient "
+          "vector, so one could always be quoted; these participants are excluded from every "
+          "summary statistic over observed peaks rather than entered at theirs. Two distinct "
+          "criteria reject a peak:\n")
+        if nom:
+            P(f"\n- *no mode* ({', '.join(nom)}): the kernel is near-flat, with under a quarter of "
+              f"its mass within half an hour of the argmax. There is no peak to report.\n")
+        if uns:
+            P(f"\n- *unstable* ({', '.join(uns)}): the argmax moves more than 15 min when the "
+              f"smoothing weight is varied over a hundred-fold range. Since that weight is chosen "
+              f"by cross-validation rather than fixed by the data, the answer would be a property "
+              f"of the regularisation.\n")
     P("\n**fit with `!`** means the relative residual exceeds 15% on what is an exact identity, so "
       "that user's dose records are not what the app saw. Treat their curve as provisional and run "
       "`gate1_controls.py` before using it.\n")

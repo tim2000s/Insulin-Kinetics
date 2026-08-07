@@ -81,7 +81,7 @@ def activity(t_min: np.ndarray, peak: float, dia_min: float) -> np.ndarray:
 
 
 # ── data ────────────────────────────────────────────────────────────────────────
-def load(user: str, days: int, offset_days: int = 0):
+def load(user: str, days: int, offset_days: int = 0, drop_external: bool = False):
     conn = psycopg2.connect(DSN)
     dec = pd.read_sql(f"""
         SELECT DISTINCT ON (floor(ts_epoch/300.0))
@@ -92,12 +92,19 @@ def load(user: str, days: int, offset_days: int = 0):
           AND ts_utc <= now() - interval '{offset_days} days'
         ORDER BY floor(ts_epoch/300.0), ts_epoch DESC""", conn, params=(user,))
     bol = pd.read_sql(f"""
-        SELECT ts_utc, insulin FROM boost_treatments
+        SELECT ts_utc, insulin, event_type FROM boost_treatments
         WHERE user_id = %s AND insulin > 0
           AND ts_utc > now() - interval '{days + offset_days + 2} days'
           AND ts_utc <= now() - interval '{offset_days} days'
         ORDER BY ts_utc""", conn, params=(user,))
     conn.close()
+    # Unlike Gate 4, Gate 1 deconvolves the app's OWN logged insulin-on-board, and the app counts
+    # externally-logged insulin into that series essentially in full (measured ratio 0.99 U of IOB
+    # per unit logged). Dropping these records would therefore break the identity Gate 1 rests on,
+    # so they are retained by default. The switch exists to test whether the app applies the same
+    # decay curve to them as to pump boluses.
+    if drop_external and "event_type" in bol.columns:
+        bol = bol[~bol.event_type.eq("External Insulin")]
     for d in (dec, bol):
         d["ts"] = pd.to_datetime(d.ts_utc, utc=True)
     return dec.sort_values("ts").reset_index(drop=True), bol
@@ -128,6 +135,10 @@ def main():
                          "would otherwise be pooled into one blended estimate.")
     ap.add_argument("--expect-peak", type=float, default=38.0)
     ap.add_argument("--expect-dia", type=float, default=600.0)
+    ap.add_argument("--drop-external", action="store_true",
+                    help="exclude 'External Insulin' records. Off by default: the app counts them "
+                         "into the logged IOB this gate deconvolves, so removing them would break "
+                         "the identity. Use to test whether they decay on the same curve.")
     ap.add_argument("--boot", type=int, default=200)
     ap.add_argument("--out", help="report path (default GATE1_REPORT.md beside the script)")
     ap.add_argument("--fix-dia", action="store_true",
@@ -141,7 +152,7 @@ def main():
                          "estimate barely moves (<0.2 min), so this is close to free.")
     a = ap.parse_args()
 
-    dec, bol = load(a.user, a.days, a.offset_days)
+    dec, bol = load(a.user, a.days, a.offset_days, drop_external=a.drop_external)
     if dec.empty or bol.empty:
         print("no data"); return
     STEP = 300.0                                    # the loop's own 5-minute cadence
@@ -189,7 +200,7 @@ def main():
     rng = np.random.default_rng(20260804)
     day = (grid_s[obs_idx] // 86400).astype(int)
     days_u = np.unique(day)
-    peaks, dias = [], []
+    peaks, dias, boot_failed = [], [], []
     for _ in range(a.boot):
         pick = rng.choice(days_u, len(days_u), replace=True)
         idx = np.concatenate([np.flatnonzero(day == dd) for dd in pick])
@@ -205,8 +216,11 @@ def main():
                                    x0=fit.x, bounds=([10.0, 120.0], [180.0, 1440.0]),
                                    xtol=1e-8, ftol=1e-8)
                 peaks.append(fb.x[0]); dias.append(fb.x[1])
-        except Exception:                                            # noqa: BLE001
-            pass
+        except Exception as e:                                       # noqa: BLE001
+            # A dropped replicate is not free. The interval would then be computed over the
+            # replicates that CONVERGED — a survivorship-selected subset, not the bootstrap
+            # distribution. Count them so the report discloses the loss rather than hiding it.
+            boot_failed.append(repr(e)[:80])
     pk_lo, pk_hi = np.percentile(peaks, [2.5, 97.5]) if len(peaks) > 20 else (np.nan, np.nan)
     di_lo, di_hi = np.percentile(dias, [2.5, 97.5]) if len(dias) > 20 else (np.nan, np.nan)
 
@@ -215,6 +229,10 @@ def main():
     P("# Gate 1 — recovering a known insulin curve\n")
     P(f"User **{a.user}**, last {a.days} days: {len(obs)} cycles, {int((dose_grid>0).sum())} dosing bins "
       f"({dose_grid.sum():.0f} U total).\n")
+    if boot_failed:
+        P(f"\n**{len(boot_failed)} of {a.boot} bootstrap replicates failed to converge** and are "
+          f"absent from the interval below, which is therefore computed over survivors and may be "
+          f"optimistically narrow. First failure: `{boot_failed[0]}`.\n")
     P("\nDeconvolves the logged bolus-only IOB series against the delivered boluses. The answer is "
       "known by construction — it must return the configured curve.\n")
     P("\n| | configured | recovered | 95% CI |")
@@ -270,6 +288,9 @@ def main():
          "about insulin.\n"))
     P("\n## Peak of ACTION vs peak of IOB decay\n")
     tt = np.arange(0, a.expect_dia, 1.0)
+    # argmax-ok: this is the ANALYTIC activity curve evaluated on a 1-minute grid from recovered
+    # parameters, not an estimated kernel. It is unimodal by construction and carries no noise, so
+    # the reverse-causality guard that peak_of applies would be meaningless here.
     P(f"For the recovered curve, action peaks at **{tt[np.argmax(activity(tt, peak_hat, dia_hat))]:.0f} min** "
       "— this is the number the loop uses, and the one a glucose-based estimate is comparable to.\n")
 

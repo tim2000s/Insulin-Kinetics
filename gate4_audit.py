@@ -53,7 +53,7 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
 
-    grid, bg, dose, ok, clock, day, has_steps = load_grid(a.user, a.tz)
+    grid, bg, dose, ok, clock, day, has_steps, *_ = load_grid(a.user, a.tz)
     X_d, X_c, X_n, rows, K = design(dose, clock, day, ok, a.max_lag)
     y = bg[rows + 1] - bg[rows]
     lam = gcv(y, X_d, X_c, X_n, np.logspace(1, 5, 5))
@@ -74,6 +74,7 @@ def main():
 
     # B — is the non-negativity constraint binding early?
     n_zero_early = int(np.sum(beta[:6] <= 1e-9))
+    # argmax-ok: first TRUE in a boolean mask, i.e. the first non-zero lag. Not a peak.
     first_nz = int(np.argmax(beta > 1e-9)) if (beta > 1e-9).any() else -1
     # unconstrained refit, to see what the constraint is suppressing
     from scipy.linalg import lstsq

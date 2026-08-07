@@ -96,7 +96,7 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
 
-    grid, bg, dose, ok, clock, day, _ = load_grid(a.user, a.tz)
+    grid, bg, dose, ok, clock, day, *_ = load_grid(a.user, a.tz)
     t0 = grid[0]
     bas = basal_series(a.user, grid, t0)
     if bas is None:
