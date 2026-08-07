@@ -228,13 +228,12 @@ def main():
           f"insulin"
           + (f" — {m_ext_lev.group(3)}% of dosing leverage from {m_ext_lev.group(2)}% of delivered "
              f"units in the most affected participant" if m_ext_lev else "") + ".</p>")
-        A(f"<p>The two estimators are affected in opposite directions, and each decision was tested "
-          f"rather than assumed. The controller credits this insulin into its own "
-          f"insulin-on-board essentially in full"
+        A(f"<p>The two estimators require opposite treatment of these records. The controller "
+          f"credits this insulin into its own insulin-on-board essentially in full"
           + (f" ({m_ext_ratio.group(1)} U of insulin-on-board per unit logged, measured across the "
              f"events themselves)" if m_ext_ratio else "") + ", so it forms part of the identity "
-          f"the configured-profile estimator rests on and is retained there; removing it from one "
-          f"participant raised that participant's relative residual from 0.18 to 0.60. The "
+          f"the configured-profile estimator rests on and is retained there; withholding it raises "
+          f"the relative residual of the most affected participant from 0.18 to 0.60. The "
           f"observed-profile estimator asks instead how the insulin behaves in glucose, where an "
           f"unknown and possibly long-acting preparation represented by a rapid-acting kernel "
           f"would bias the estimate late. These records are therefore excluded from the "
@@ -372,7 +371,7 @@ def main():
       "by −30 to +30 min.</p>")
 
     A("<h3>2.6 Bias corrections</h3>")
-    A("<p>Two systematic biases were identified and are corrected in all reported values. First, "
+    A("<p>Two systematic biases in the estimator are corrected in all reported values. First, "
       "the target is a forward difference regressed on <i>d</i><sub>t−k</sub>, so the change across "
       "an interval is attributed to a lag of 5<i>k</i> min when the mean lag across that interval "
       "is 5<i>k</i> + 2.5; an alignment term of +2.5 min is added at reporting. Second, glucose "
@@ -384,9 +383,6 @@ def main():
       "grid and carry no corresponding offset.</p>")
 
     A("<h3>2.7 Identifiability of the peak</h3>")
-    A("<p>Two conditions had to hold before a peak was reported, in addition to the plausibility "
-      "bounds. The first concerns the shape of the recovered curve and the second its dependence "
-      "on the one free parameter of the estimator.</p>")
     A("<p>The estimator returns a coefficient vector, and every coefficient vector has a maximum. "
       "Quoting that maximum as a peak presumes the curve has a mode, which is a property of the "
       "estimate and not something the method guarantees. Two conditions were therefore required "
@@ -398,9 +394,7 @@ def main():
       "scores 0.58 and 0.93, so floors of 0.25 and 0.40 lie below every admissible curve while still "
       "rejecting one with no mode. Participants failing either condition are reported as having no "
       "identifiable peak and are excluded from summary statistics over peaks; their argmax is "
-      "recorded in the per-participant output but is not carried forward. Applied to a preceding "
-      "version of this analysis the criterion changes one participant, whose near-flat kernel had "
-      "otherwise been summarised as a confident 28 min.</p>")
+      "recorded in the per-participant output but is not carried forward.</p>")
     A("<p>The second condition addresses a failure the first cannot see. An oscillating estimate "
       "can place ample mass near its argmax and still be reporting noise, and whether it oscillates "
       "is governed by λ, which cross-validation selects rather than the data fix. Each fit was "
@@ -409,9 +403,7 @@ def main():
       "hundred-fold range was 5 min, and one participant exceeded the tolerance at 25 min: a "
       "kernel oscillating between adjacent lags on the smallest sample in the series, whose argmax "
       "lay between two substantially smaller neighbours. That participant's peak is withheld on "
-      "the same basis. This condition also supersedes a weaker sensitivity statement made in an "
-      "earlier version of this work, which reported the λ dependence as at most 5 min because it "
-      "had been evaluated on a participant where it was.</p>")
+      "the same basis.</p>")
 
     A("<h3>2.8 Statistical analysis</h3>")
     A("<p>Intervals were obtained by block bootstrap resampling whole days with replacement and "
@@ -561,15 +553,6 @@ def main():
           f"do. The direction is not uniform: one further participant moves 10 min the other way, "
           f"which is within the range this estimator moves under other specification choices of "
           f"similar size.</p>")
-    A("<p>Two defects in the analysis code were identified by an independent verification pass and "
-      "corrected before the estimates reported here were produced. Doses timestamped outside the "
-      "glucose grid had been clipped into its first bin rather than dropped, accumulating up to "
-      "10,456 U in a single five-minute interval in one participant; because no eligible target row "
-      "reaches that bin, correcting it changed no estimate, and it is reported because a latent "
-      "defect of that magnitude would not have stayed harmless under a different eligibility rule. "
-      "Separately, bootstrap replicates that failed to converge had been discarded silently, so any "
-      "interval computed from them would have described survivors rather than the bootstrap "
-      "distribution; the count is now reported alongside the interval.</p>")
 
     # ---------------- Discussion ----------------
     A("<h2>4. Discussion</h2>")
