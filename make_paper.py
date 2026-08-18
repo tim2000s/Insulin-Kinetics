@@ -25,6 +25,7 @@ from paper_figures import all_figures
 from platform_detect import detect as detect_platform
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PAPER_VERSION = 4
 
 CSS = """
 @page { size: A4; margin: 22mm 20mm;
@@ -125,6 +126,10 @@ def main():
     m_ext_n = re.search(r"\n(\d+) of (\d+) participants have records typed", ext)
     dsup = read(os.path.join(B, "val_dosesupport.md"))
     m_dsup = re.search(r"is a median\s*\n?\s*of (\d+)% of the 90th-percentile dose overall", dsup)
+    binsw = read(os.path.join(B, "DOSE_BIN_SENSITIVITY.md"))
+    bin_rows = re.findall(
+        r"\|\s*(\d+)\s*\|\s*([\d.]+)\s*\|\s*(\d+) min\s*\|\s*([+-]\d+) min\s*\|"
+        r"\s*([+-]\d+) min\s*\|\s*([+-]\d+) min\s*\|", binsw)
     cr = read(os.path.join(B, "counterreg.md"))
     m_cr = re.search(r"is later in \*\*(\d+) of (\d+)\*\*, median difference \*\*([+\-]\d+) min",
                      cr)
@@ -132,10 +137,11 @@ def main():
 
     H = []
     A = H.append
-    A("<h1>Recovery of configured and observed insulin action profiles from routine "
-      "automated insulin delivery records: a cross-sectional analysis of 31 users</h1>")
+    A("<h1>Insulin action profiles recovered from routine automated insulin delivery records: "
+      "configured against observed kinetics of corrections and microboluses in 31 users</h1>")
     A('<div class="authors">Tim Street</div>')
     A('<div class="affil">Diabettech. Correspondence: tim@diabettech.com</div>')
+    A(f'<div class="affil">Version {PAPER_VERSION}, {dt.datetime.now():%d %B %Y}</div>')
 
     # ---------------- Abstract ----------------
     A('<div class="abstract">')
@@ -164,8 +170,12 @@ def main():
       f"min ({cfg.min():.0f}–{cfg.max():.0f}); the correlation between the two was {rho:+.2f}. "
       f"Duration "
       f"of action was not identifiable in {len(dia_na)} of {len(cohort)} participants. No "
-      f"dependence of the observed peak on dose size was detected across a twenty-two-fold range "
-      f"of dose.</p>")
+      f"dependence of the observed peak on dose size was established: an apparent tilt across "
+      f"dose bins tracks the number of bins the dose distribution is partitioned into rather than "
+      f"the dose range itself, and vanishes at the coarsest partitions, where each bin is best "
+      f"determined. The doses identifying the peak are those given without announced "
+      f"carbohydrate, so the kinetics reported are those of corrections and automatic "
+      f"microboluses and the analysis is silent about meal boluses.</p>")
     A("<p><b>Conclusions.</b> The configured profile is recoverable exactly and provides a "
       "practical audit of what a system is computing. The observed profile is recoverable with "
       "useful precision but is systematically shorter than both the configured value and published "
@@ -517,16 +527,35 @@ def main():
       "than being flat. Pooled across participants the same control recovered the injected kernel "
       "to within 5 min, and the pooled estimate is reported on that basis.</p>")
     A("<table><thead><tr><th>Dose bin</th><th>Median dose (U)</th><th>Observed peak (min)</th>"
-      "<th>Control (min)</th></tr></thead><tbody>")
-    for _b, _d, _o, _c in (("1", "0.05", "40", "55"), ("2", "0.10", "40", "55"),
-                           ("3", "0.25", "40", "60"), ("4", "0.55", "38", "55"),
-                           ("5", "1.10", "40", "58")):
-        A(f"<tr><td>{_b}</td><td>{_d}</td><td>{_o}</td><td>{_c}</td></tr>")
+      "<th>Observed end to end (min)</th>"
+      "<th>Control end to end (min)</th><th>Residual (min)</th></tr></thead><tbody>")
+    for _b, _d, _sp, _oe, _ce, _rs in bin_rows:
+        A(f"<tr><td>{_b}</td><td>{_d}</td><td>{_sp}</td><td>{_oe}</td>"
+          f"<td>{_ce}</td><td>{_rs}</td></tr>")
     A("</tbody></table>")
-    A('<div class="cap"><b>Table 3.</b> Observed peak by dose bin, pooled across participants, '
-      'against a control in which all doses share one kernel.</div>')
-    A("<p>The observed peak was flat at 38 to 40 min across a twenty-two-fold range of dose size, "
-      "with the control confirming that a tilt would have been detected had one been present.</p>")
+    A('<div class="cap"><b>Table 3.</b> Response by dose bin under successive partitions of each '
+      'participant\'s own dose distribution, pooled across participants, each fit paired with a '
+      'control in which every dose acts through one kernel by construction.</div>')
+    if bin_rows:
+        _coarse, _fine = bin_rows[0], bin_rows[-1]
+        _spans = [int(r[2]) for r in bin_rows]
+        _res = [int(r[5]) for r in bin_rows]
+        A(f"<p>The number of bins is the one quantity in this analysis chosen freely, and the "
+          f"result moves with it. The observed spread across bins runs from {min(_spans)} min at "
+          f"the coarsest partition to {max(_spans)} min at the finest, and the residual after "
+          f"subtracting the control from {min(_res):+d} to {max(_res):+d} min over the same "
+          f"sweep. At {_coarse[0]} bins, where each bin holds the most doses and each kernel is "
+          f"best determined, the observed end-to-end change is {_coarse[3]} min against "
+          f"{_coarse[4]} for the control. A dependence on dose is a property of the dose range "
+          f"and would be recovered under any partition of it, with wider intervals at the finer "
+          f"partitions and nothing further; a quantity that grows as bins thin is what "
+          f"collinearity between adjacent dose strata produces when no effect is present. The "
+          f"control is not flat at any partition, so it does not establish that a tilt would "
+          f"have been detected had one existed; it establishes the size of the tilt the "
+          f"estimator manufactures without one.</p>")
+        A(f"<p>The median dose in the highest bin is {_coarse[1]} U at the coarsest partition and "
+          f"{_fine[1]} U at the finest. No partition of these data reaches the sizes at which "
+          f"meal boluses are given.</p>")
 
     A("<h3>3.6 Sensitivity analyses</h3>")
     A("<p>Beyond the two corrected biases, the following were examined and found not to alter the "
@@ -609,9 +638,13 @@ def main():
           f"the 90th-percentile dose supporting that region is a median of {m_dsup.group(1)}% of "
           f"the 90th-percentile dose overall. This does not bias the peak in time, since a "
           f"correction should follow the same kinetics as a meal bolus, but it does mean the "
-          f"dose-independence result covers the correction range rather than the full delivered "
-          f"range, and that the doses identifying the peak are precisely those given because "
-          f"glucose was high or rising.</p>")
+          f"absence of a detectable dose effect covers the correction range rather than the full "
+          f"delivered range, and that the doses identifying the peak are precisely those given "
+          f"because glucose was high or rising. The restriction is structural rather than "
+          f"incidental: the three-hour exclusion is what buys isolation from carbohydrate, and it "
+          f"removes meal boluses from the peak region as a condition of doing so. A design able "
+          f"to recover meal-bolus kinetics would have to obtain that isolation another way, and "
+          f"no such design is offered here.</p>")
     A("<ol>")
     A("<li>Sensor lag, comprising interstitial delay of approximately 5 to 7 min [6, 7] together "
       "with filter delay, is not corrected. It biases observed values later and therefore cannot "
@@ -620,6 +653,11 @@ def main():
       "who never enter carbohydrate the carbohydrate-on-board criterion is inert.</li>")
     A("<li>Physical activity is uncontrolled where the uploader provides no step count, which "
       "applies to all Trio participants.</li>")
+    A("<li>Dose dependence of absorption is documented in product labelling and is not "
+      "contradicted here. The design cannot resolve it: the doses identifying the peak span the "
+      "correction range only, and the partition-dependence of the apparent tilt shows the "
+      "estimator manufactures structure between adjacent dose strata at the resolutions where "
+      "such an effect would appear.</li>")
     A("<li>The comparison with clamp pharmacodynamics spans doses two orders of magnitude apart "
       "and conditions that differ in whether counter-regulation is permitted; the quantities are "
       "not directly commensurable.</li>")
