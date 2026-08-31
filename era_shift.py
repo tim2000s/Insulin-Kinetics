@@ -27,7 +27,7 @@ as twice the units, the per-unit response must halve. The ratio of kernel areas 
 that the design is seeing the change at all, independent of any question about the peak.
 
 Usage:
-  python3 era_shift.py --user tim --tz Europe/London --boundary 2026-08-05 [--placebo 20]
+  python3 era_shift.py --user <id> --tz <tz> --boundary <YYYY-MM-DD> [--placebo 20]
 """
 from __future__ import annotations
 

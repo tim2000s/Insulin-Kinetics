@@ -26,3 +26,12 @@ build/
 
 # per-user scratch from the external-insulin sensitivity refits
 .ext_*
+
+# per-user era-shift and power outputs carry the working identifier in the filename and in the
+# text, exactly as the gate reports above do. Only the anonymised ERA_DILUTION_REPORT.md is
+# publishable.
+ERA_*.md
+ERAB_*.md
+POWERB_*.md
+BASAL_*.md
+!ERA_DILUTION_REPORT.md
