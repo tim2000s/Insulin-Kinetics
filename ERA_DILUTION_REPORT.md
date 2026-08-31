@@ -51,10 +51,13 @@ mass is now recorded as twice the units the per-unit response must halve. The ob
 produce once carried through the same short-window bias, 0.41 to 0.74. It holds between 0.61 and
 0.67 across a hundred-fold range of smoothing. The design is seeing the change.
 
-The timing is not resolved. A peak of 62 min against 38 min before looks like a substantial move,
-but a value at least that far from the null median arises about half the time when nothing has
-changed, and the estimate itself drifts between 52 and 62 min on the smoothing choice alone. No
-shift in absorption timing is established by this window, in either direction.
+The timing is not resolved. A peak in the high fifties against 38 min before looks like a
+substantial move, but a value at least that far from the null median arises about half the time
+when nothing has changed, and the estimate is not stable in any case. `era_smoothing_check.py`
+refits the model across a hundred-fold range of the smoothing penalty and the post-boundary peak
+moves across roughly the width of the shift being claimed, while the area ratio holds between 0.61
+and 0.67. The peak also moves as days accumulate, which the area ratio does not. No shift in
+absorption timing is established by this window, in either direction.
 
 ## How much record would be needed
 
